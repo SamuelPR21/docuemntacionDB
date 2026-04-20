@@ -24,16 +24,16 @@ INSERT INTO modulo9.patologias (nombre, descripcion) VALUES
 -- 3. ESPECIES_PATOLOGIAS
 -- ============================================================
 INSERT INTO modulo9.especies_patologias (id_especie, id_patologia) VALUES
-(1, 1), -- Tilapia - Ich
-(1, 3), -- Tilapia - Columnaris
-(2, 1), -- Trucha - Ich
-(2, 4), -- Trucha - Saprolegniosis
-(3, 2), -- Camarón - Vibriosis
-(3, 5), -- Camarón - Mancha blanca
-(4, 1), -- Cachama - Ich
-(4, 3), -- Cachama - Columnaris
-(5, 1), -- Mojarra - Ich
-(5, 4); -- Mojarra - Saprolegniosis
+(1, 6), -- Tilapia - Ich
+(1, 8), -- Tilapia - Columnaris
+(2, 6), -- Trucha - Ich
+(2, 9), -- Trucha - Saprolegniosis
+(3, 7), -- Camarón - Vibriosis
+(3, 10), -- Camarón - Mancha blanca
+(4, 6), -- Cachama - Ich
+(4, 8), -- Cachama - Columnaris
+(5, 6), -- Mojarra - Ich
+(5, 9); -- Mojarra - Saprolegniosis
  
 -- ============================================================
 -- 4. CICLOS_BIOLOGICOS
@@ -69,23 +69,23 @@ INSERT INTO modulo9.ciclos_productivos (nombre, duracion_dias, id_ciclo_biologic
 -- 6. CICLOS_PRODUCTIVOS_BIOLOGICOS
 -- ============================================================
 INSERT INTO modulo9.ciclos_productivos_biologicos (id_ciclo_biologico, id_ciclo_productivo) VALUES
-(1,  1), -- larval tilapia    -> ciclo completo tilapia
-(2,  1), -- juvenil tilapia   -> ciclo completo tilapia
-(3,  1), -- engorde tilapia   -> ciclo completo tilapia
-(4,  2), -- larval trucha     -> ciclo completo trucha
-(5,  2), -- juvenil trucha    -> ciclo completo trucha
-(6,  2), -- engorde trucha    -> ciclo completo trucha
-(7,  3), -- postlarval camaron-> ciclo completo camarón
-(8,  3), -- juvenil camarón   -> ciclo completo camarón
-(9,  3), -- engorde camarón   -> ciclo completo camarón
-(10, 4), -- juvenil cachama   -> ciclo completo cachama
-(11, 4), -- engorde cachama   -> ciclo completo cachama
-(12, 5), -- juvenil mojarra   -> ciclo completo mojarra
-(13, 5), -- engorde mojarra   -> ciclo completo mojarra
-(3,  6), -- engorde tilapia   -> ciclo rápido tilapia
-(7,  7), -- postlarval camaron-> ciclo experimental
-(8,  7), -- juvenil camarón   -> ciclo experimental
-(9,  7); -- engorde camarón   -> ciclo experimental
+(14,  9), -- larval tilapia    -> ciclo completo tilapia
+(15,  9), -- juvenil tilapia   -> ciclo completo tilapia
+(16,  9), -- engorde tilapia   -> ciclo completo tilapia
+(17,  10), -- larval trucha     -> ciclo completo trucha
+(18,  10), -- juvenil trucha    -> ciclo completo trucha
+(19,  10), -- engorde trucha    -> ciclo completo trucha
+(20,  11), -- postlarval camaron-> ciclo completo camarón
+(21,  11), -- juvenil camarón   -> ciclo completo camarón
+(22,  11), -- engorde camarón   -> ciclo completo camarón
+(23, 12), -- juvenil cachama   -> ciclo completo cachama
+(24, 12), -- engorde cachama   -> ciclo completo cachama
+(25, 13), -- juvenil mojarra   -> ciclo completo mojarra
+(26, 13), -- engorde mojarra   -> ciclo completo mojarra
+(16,  14), -- engorde tilapia   -> ciclo rápido tilapia
+(20,  14), -- postlarval camaron-> ciclo experimental
+(21,  14), -- juvenil camarón   -> ciclo experimental
+(22,  14); -- engorde camarón   -> ciclo experimental
  
 -- ============================================================
 -- 7. METRICAS_PRODUCCION
@@ -103,19 +103,19 @@ INSERT INTO modulo9.metricas_produccion (nombre, unidad_medida, tipo_medicion, t
 -- ============================================================
 -- 8. METRICAS_CICLO_PRODUCTIVO
 -- ============================================================
-INSERT INTO modulo9.metricas_ciclo_productivo (id_ciclo_producitvo, id_metrica_produccion) VALUES
-(1, 1),(1, 2),(1, 3),(1, 4),(1, 5),(1, 8), -- tilapia completo
-(2, 1),(2, 2),(2, 3),(2, 4),(2, 6),(2, 8), -- trucha completo
-(3, 1),(3, 2),(3, 3),(3, 4),(3, 5),(3, 8), -- camarón completo
-(4, 1),(4, 2),(4, 3),(4, 7),(4, 8),        -- cachama completo
-(5, 1),(5, 2),(5, 3),(5, 4),(5, 8),        -- mojarra completo
-(6, 1),(6, 2),(6, 4),(6, 8),               -- tilapia rápido
-(7, 1),(7, 2),(7, 3),(7, 5),(7, 8);        -- camarón experimental
+INSERT INTO modulo9.metricas_ciclo_productivo (id_ciclo_productivo, id_metrica_produccion) VALUES
+(8, 9),(8, 10),(8, 11),(8, 12),(8, 14),(8, 15), -- tilapia completo
+(9, 9),(9, 10),(9, 11),(9, 12),(9, 16),(9, 15), -- trucha completo
+(10, 9),(10, 10),(10, 11),(10, 12),(10, 14),(10, 15), -- camarón completo
+(11, 9),(11, 10),(11, 11),(11, 15),(11, 15),        -- cachama completo
+(12, 9),(12, 10),(12, 11),(12, 13),(12, 15),        -- mojarra completo
+(13, 9),(13, 10),(13, 11),(13, 13),               -- tilapia rápido
+(14, 9),(14, 10),(14, 11),(14, 13),(14, 15);        -- camarón experimental
  
 -- ============================================================
 -- 9. VARIABLES_AMBIENTALES
 -- ============================================================
-INSERT INTO modulo9.variables_ambientales (nombre, unidad, valor_fisico_min, valor_fisco_min, es_activo) VALUES
+INSERT INTO modulo9.variables_ambientales (nombre, unidad, valor_fisico_min, valor_fisico_max, es_activo) VALUES
 ('Temperatura del agua',    '°C',   0,   45,  true),
 ('pH del agua',             'pH',   0,   14,  true),
 ('Oxígeno disuelto',        'mg/L', 0,   20,  true),
@@ -149,63 +149,63 @@ INSERT INTO modulo9.umbrales_ambientales (nombre, unidad_medida, descripcion, es
 -- ============================================================
 INSERT INTO modulo9.niveles_alerta_ambientales (id_umbral_ambiental, nivel, limite_inferior, limite_superior) VALUES
 -- Temperatura tilapia (umbral 1)
-(1, 'NORMAL',    25, 30),
-(1, 'PRECAUCION',20, 25),
-(1, 'CRITICO',   0,  20),
+(1, 'normal',    25, 30),
+(1, 'precaucion',20, 25),
+(1, 'critico',   0,  20),
 -- pH tilapia (umbral 2)
-(2, 'NORMAL',    6,  8),
-(2, 'PRECAUCION',5,  6),
-(2, 'CRITICO',   0,  5),
+(2, 'normal',    6,  8),
+(2, 'precaucion',5,  6),
+(2, 'critico',   0,  5),
 -- OD tilapia (umbral 3)
-(3, 'NORMAL',    5,  12),
-(3, 'PRECAUCION',3,  5),
-(3, 'CRITICO',   0,  3),
+(3, 'normal',    5,  12),
+(3, 'precaucion',3,  5),
+(3, 'critico',   0,  3),
 -- Temperatura trucha (umbral 4)
-(4, 'NORMAL',    12, 18),
-(4, 'PRECAUCION',8,  12),
-(4, 'CRITICO',   18, 25),
+(4, 'normal',    12, 18),
+(4, 'precaucion',8,  12),
+(4, 'critico',   18, 25),
 -- pH trucha (umbral 5)
-(5, 'NORMAL',    6,  8),
-(5, 'PRECAUCION',5,  6),
-(5, 'CRITICO',   0,  5),
+(5, 'normal',    6,  8),
+(5, 'precaucion',5,  6),
+(5, 'critico',   0,  5),
 -- OD trucha (umbral 6)
-(6, 'NORMAL',    8,  14),
-(6, 'PRECAUCION',6,  8),
-(6, 'CRITICO',   0,  6),
+(6, 'normal',    8,  14),
+(6, 'precaucion',6,  8),
+(6, 'critico',   0,  6),
 -- Temperatura camarón (umbral 7)
-(7, 'NORMAL',    23, 30),
-(7, 'PRECAUCION',20, 23),
-(7, 'CRITICO',   0,  20),
+(7, 'normal',    23, 30),
+(7, 'precaucion',20, 23),
+(7, 'critico',   0,  20),
 -- Salinidad camarón (umbral 8)
-(8, 'NORMAL',    10, 25),
-(8, 'PRECAUCION',5,  10),
-(8, 'CRITICO',   0,  5),
+(8, 'normal',    10, 25),
+(8, 'precaucion',5,  10),
+(8, 'critico',   0,  5),
 -- Amoniaco camarón (umbral 9)
-(9, 'NORMAL',    0,  1),
-(9, 'PRECAUCION',1,  2),
-(9, 'CRITICO',   2,  10),
+(9, 'normal',    0,  1),
+(9, 'precaucion',1,  2),
+(9, 'critico',   2,  10),
 -- Temperatura cachama (umbral 10)
-(10,'NORMAL',    26, 32),
-(10,'PRECAUCION',22, 26),
-(10,'CRITICO',   0,  22),
+(10,'normal',    26, 32),
+(10,'precaucion',22, 26),
+(10,'critico',   0,  22),
 -- OD cachama (umbral 11)
-(11,'NORMAL',    4,  12),
-(11,'PRECAUCION',2,  4),
-(11,'CRITICO',   0,  2),
+(11,'normal',    4,  12),
+(11,'precaucion',2,  4),
+(11,'critico',   0,  2),
 -- Temperatura mojarra (umbral 12)
-(12,'NORMAL',    24, 30),
-(12,'PRECAUCION',20, 24),
-(12,'CRITICO',   0,  20),
+(12,'normal',    24, 30),
+(12,'precaucion',20, 24),
+(12,'critico',   0,  20),
 -- pH mojarra (umbral 13)
-(13,'NORMAL',    6,  9),
-(13,'PRECAUCION',5,  6),
-(13,'CRITICO',   0,  5);
+(13,'normal',    6,  9),
+(13,'precaucion',5,  6),
+(13,'critico',   0,  5);
  
 -- ============================================================
 -- 12. FINCA
 -- (id_usuario = 2 asumiendo usuario con rol Productor existente)
 -- ============================================================
-INSERT INTO modulo9.finca (nombre, ubicacion, tamano_h, fecha_actualizacion, fecha_creacion, id_usuario, es_activo) VALUES
+INSERT INTO modulo9.fincas (nombre, ubicacion, tamano_h, fecha_actualizacion, fecha_creacion, id_usuario, es_activo) VALUES
 ('Finca Acuícola El Remanso',
  '{"lat": 2.9273, "lng": -75.2819, "municipio": "Neiva", "departamento": "Huila"}',
  12.50, NOW(), NOW(), 2, true),
@@ -225,16 +225,16 @@ INSERT INTO modulo9.finca (nombre, ubicacion, tamano_h, fecha_actualizacion, fec
 -- ============================================================
 -- 13. INFRAESTRUCTURAS
 -- ============================================================
-INSERT INTO modulo9.infraestructuras (descripcion, nombre, id_finca, superfice, es_activo, tipo) VALUES
-('Estanque principal de engorde de tilapia con aireación artificial',        'Estanque-01',    1, 2500.00, true,  'ESTANQUE'),
-('Estanque secundario para fase juvenil de tilapia',                         'Estanque-02',    1, 1800.00, true,  'ESTANQUE'),
-('Área de alevinaje y larvicultura de tilapia',                              'Alevinera-01',   1,  500.00, true,  'ESTANQUE'),
-('Estanque de trucha arcoíris con flujo de agua continuo',                   'Canal-Trucha-01',2, 1200.00, true,  'CANAL'),
-('Estanque de engorde de trucha con alta oxigenación',                       'Canal-Trucha-02',2, 1200.00, true,  'CANAL'),
-('Estanque de engorde de camarón blanco con recirculación parcial',          'Piscina-Cam-01', 3, 5000.00, true,  'ESTANQUE'),
-('Piscina de reserva y aclimatación de postlarvas de camarón',               'Piscina-Cam-02', 3, 3000.00, true,  'ESTANQUE'),
-('Estanque de cachama en sistema semi-intensivo',                            'Estanque-Cache-01',4,3200.00,true,  'ESTANQUE'),
-('Estanque de mojarra en policultivo',                                       'Estanque-Moj-01',4, 2800.00, true,  'ESTANQUE');
+INSERT INTO modulo9.infraestructuras (descripcion, nombre, id_finca, superficie, es_activo, tipo) VALUES
+('Estanque principal de engorde de tilapia con aireación artificial',        'Estanque-01',    1, 2500.00, true,  'estanque'),
+('Estanque secundario para fase juvenil de tilapia',                         'Estanque-02',    1, 1800.00, true,  'estanque'),
+('Área de alevinaje y larvicultura de tilapia',                              'Alevinera-01',   1,  500.00, true,  'estanque'),
+('Estanque de trucha arcoíris con flujo de agua continuo',                   'Canal-Trucha-01',2, 1200.00, true,  'estanque'),
+('Estanque de engorde de trucha con alta oxigenación',                       'Canal-Trucha-02',2, 1200.00, true,  'estanque'),
+('Estanque de engorde de camarón blanco con recirculación parcial',          'Piscina-Cam-01', 3, 5000.00, true,  'estanque'),
+('Piscina de reserva y aclimatación de postlarvas de camarón',               'Piscina-Cam-02', 3, 3000.00, true,  'estanque'),
+('Estanque de cachama en sistema semi-intensivo',                            'Estanque-Cache-01',4,3200.00,true,  'estanque'),
+('Estanque de mojarra en policultivo',                                       'Estanque-Moj-01',4, 2800.00, true,  'estanque');
  
 -- ============================================================
 -- 14. DISPOSITIVOS_IOT
@@ -243,8 +243,8 @@ INSERT INTO modulo9.dispositivos_iot (serial, descripcion, id_infraestructura, e
 ('IOT-EST01-HLA-001', 'Nodo IoT principal estanque 01, gateway LoRaWAN con batería solar',      1, true, NOW()),
 ('IOT-EST02-HLA-002', 'Nodo IoT estanque 02, módulo WiFi con fuente de red',                   2, true, NOW()),
 ('IOT-ALE01-HLA-003', 'Nodo IoT alevinera, módulo compacto de bajo consumo',                   3, true, NOW()),
-('IOT-TRU01-VLC-001', 'Nodo IoT canal trucha 01, resistente a bajas temperaturas',             4, true, NOW()),
-('IOT-TRU02-VLC-002', 'Nodo IoT canal trucha 02, con alarma local integrada',                  5, true, NOW()),
+('IOT-TRU01-VLC-001', 'Nodo IoT estanque trucha 01, resistente a bajas temperaturas',             4, true, NOW()),
+('IOT-TRU02-VLC-002', 'Nodo IoT estanque trucha 02, con alarma local integrada',                  5, true, NOW()),
 ('IOT-CAM01-COR-001', 'Nodo IoT piscina camarón 01, gateway LoRaWAN costero',                  6, true, NOW()),
 ('IOT-CAM02-COR-002', 'Nodo IoT piscina camarón 02, módulo de respaldo',                       7, true, NOW()),
 ('IOT-CAC01-CAL-001', 'Nodo IoT estanque cachama, módulo estándar de campo',                   8, true, NOW()),
@@ -253,7 +253,7 @@ INSERT INTO modulo9.dispositivos_iot (serial, descripcion, id_infraestructura, e
 -- ============================================================
 -- 15. SESNSORES (nombre tal cual en el DDL)
 -- ============================================================
-INSERT INTO modulo9.sesnsores (id_dispositivo_iot, es_activo, nombre) VALUES
+INSERT INTO modulo9.sensores (id_dispositivo_iot, es_activo, nombre) VALUES
 (1, true,  'Sensor temperatura estanque-01'),
 (1, true,  'Sensor pH estanque-01'),
 (1, true,  'Sensor oxígeno disuelto estanque-01'),
@@ -278,7 +278,7 @@ INSERT INTO modulo9.sesnsores (id_dispositivo_iot, es_activo, nombre) VALUES
 -- ============================================================
 -- 16. SENSORES_AREAS_ASOCIDAS (nombre tal cual en el DDL)
 -- ============================================================
-INSERT INTO modulo9.sensores_areas_asocidas
+INSERT INTO modulo9.sensores_areas_asociadas
 (id_sensor, id_dispositivo_iot, id_infraestructura, punto_instalacion, tiene_estado, fecha_asociacion, fecha_finalizacion, id_usuario) VALUES
 (1,  1, 1, 'Entrada de agua, profundidad 30cm',        true, NOW(), NULL, 2),
 (2,  1, 1, 'Centro del estanque, profundidad 50cm',    true, NOW(), NULL, 2),
@@ -319,13 +319,13 @@ INSERT INTO modulo9.configuraciones_remotas (frecuencia_captura, intervalo_trans
 -- 18. CONFIGURACIONES_GLOBALES
 -- (id_usuario = 1 asumiendo admin existente)
 -- ============================================================
-INSERT INTO modulo9.configuraciones_globales (frecuencia_muestreo, hearbeat, fecha_actulizacion, id_usuario, es_activo) VALUES
+INSERT INTO modulo9.configuraciones_globales (frecuencia_muestreo, heartbeat, fecha_actualizacion, id_usuario, es_activo) VALUES
 (60,  120, NOW(), 1, true);
  
 -- ============================================================
 -- 19. CALIBRACIONES
 -- ============================================================
-INSERT INTO public.calibraciones (id_dispositivo_iot, fecha_calibracion, id_sensor, valor_referencia, observaciones, id_usuario) VALUES
+INSERT INTO modulo9.calibraciones (id_dispositivo_iot, fecha_calibracion, id_sensor, valor_referencia, observaciones, id_usuario) VALUES
 (1, NOW() - INTERVAL '30 days', 1,  25.0, 'Calibración inicial con termómetro patrón certificado NIST.',   1),
 (1, NOW() - INTERVAL '30 days', 2,   7.0, 'Calibración con buffer pH 7.0 y 4.0. Electrodo en buen estado.',1),
 (1, NOW() - INTERVAL '30 days', 3,   8.5, 'Calibración con solución saturada. Membrana nueva.',             1),
@@ -366,7 +366,7 @@ INSERT INTO modulo9.identidad_visuales (id_finca, id_usuario, logo_path, primary
 -- 22. TEMAS_VISUALES
 -- (id_user tal cual en el DDL)
 -- ============================================================
-INSERT INTO modulo9.temas_visuales (id_user, theme_mode, es_global, fecha_actualizacion) VALUES
+INSERT INTO modulo9.temas_visuales (id_usuario, theme_mode, es_global, fecha_actualizacion) VALUES
 (1, 1, true,  NOW()),  -- Admin: claro, global
 (2, 2, false, NOW()),  -- Productor: oscuro, personal
 (3, 3, false, NOW()),  -- Usuario 3: automático, personal
@@ -376,7 +376,7 @@ INSERT INTO modulo9.temas_visuales (id_user, theme_mode, es_global, fecha_actual
 -- 23. DASHBOARD_LAYOUTS
 -- (id_user tal cual en el DDL)
 -- ============================================================
-INSERT INTO modulo9.dashboard_layouts (id_user, config, active_widget, fecha_actualizacion) VALUES
+INSERT INTO modulo9.dashboard_layouts (id_usuario, config, active_widget, fecha_actualizacion) VALUES
 (1,
  '{"grid": [
    {"id_widget": 1, "fila": 1, "columna": 1, "span": 2, "visible": true},
@@ -412,7 +412,7 @@ INSERT INTO modulo9.dashboard_layouts (id_user, config, active_widget, fecha_act
 -- 24. PREFERENCIAS_IDIOMAS
 -- (id_ususario tal cual en el DDL)
 -- ============================================================
-INSERT INTO modulo9.preferencias_idiomas (id_ususario, local_code, es_por_defecto, fecha_actulizacion) VALUES
+INSERT INTO modulo9.preferencias_idiomas (id_usuario, locale_code, es_por_defecto, fecha_actualizacion) VALUES
 (1, 'es-CO', true,  NOW()),
 (2, 'es-CO', false, NOW()),
 (3, 'en-US', false, NOW()),
@@ -437,7 +437,7 @@ INSERT INTO modulo9.auditorias_visuales (id_usuario, fecha_creacion, valor_anter
 -- ============================================================
 -- 26. PLATILLAS (nombre tal cual en el DDL)
 -- ============================================================
-INSERT INTO modulo9.platillas (id_especie, id_usuario, template_name, params_snapshot, version, fecha_creacion) VALUES
+INSERT INTO modulo9.plantillas (id_especie, id_usuario, template_name, params_snapshot, version, fecha_creacion) VALUES
 (1, 1,
  'Plantilla estándar tilapia',
  '{

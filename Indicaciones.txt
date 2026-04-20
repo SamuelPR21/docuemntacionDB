@@ -1,0 +1,3 @@
+Link diccionario de datos: https://app.powerbi.com/view?r=eyJrIjoiMWQ3Y2Y4ZWQtZmI5OC00NjcyLWJhM2UtN2I5YzRlMGRkMWExIiwidCI6IjRkOTYxOTFiLTAyMWQtNDBjMC1iYmYyLWUyNGJkMzc3NTliZSIsImMiOjR9
+
+Link repositorio de documentación: https://github.com/SamuelPR21/docuemntacionDB.git
