@@ -1,0 +1,1 @@
+-- Tener en cuenta que existen versionamientos, entonces la ultima version funcional con correcciones va a ser em mayor numero de versionado en los informes y .sql :D
