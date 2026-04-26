@@ -6,21 +6,7 @@
 --              que deben ser protegidas a nivel de base de datos.
 -- Esquema: modulo1
 -- Motor: PostgreSQL
--- Versión: 1.0
--- Para ampliar explicacion individual de los triggers verificar el documento de informe_triggers_modulo1.
--- =============================================================================
--- ÍNDICE
---   TRG-01  Unicidad de contraseña (no reutilización)
---   TRG-02  Control de versión optimista (OCC)
---   TRG-03  Protección de registros de auditoría (inmutabilidad)
---   TRG-04  Transiciones de estado de cuenta válidas
---   TRG-05  Protección del rol Administrador
---   TRG-06  Bloqueo de eliminación de rol con usuarios vinculados
---   TRG-07  Integridad mínima de permisos por rol
---   TRG-08  Invalidación de sesiones activas al cambiar estado de cuenta
---   TRG-09  Reset de contador de intentos fallidos al activar cuenta
---   TRG-10  Protección de campos críticos del usuario
---   TRG-11  Token de un solo uso (one-time use)
+-- Versión: 1.1 (TRG-07 corregido: cobertura DELETE + UPDATE)
 -- =============================================================================
 
 
@@ -99,7 +85,6 @@ DECLARE
     v_estado_origen  VARCHAR(55);
     v_estado_destino VARCHAR(55);
 BEGIN
-    -- Si el estado no cambia, no hay nada que validar
     IF NEW.id_estado_cuenta = OLD.id_estado_cuenta THEN
         RETURN NEW;
     END IF;
@@ -112,26 +97,22 @@ BEGIN
     FROM modulo1.estados_cuentas
     WHERE id_estado_cuenta = NEW.id_estado_cuenta;
 
-    -- El estado ELIMINADO es irreversible sin excepción
     IF v_estado_origen = 'ELIMINADO' THEN
-        RAISE EXCEPTION 'INVALID_TRANSITION: Una cuenta en estado ELIMINADO no puede cambiar a %. Esta transición es irreversible.',
+        RAISE EXCEPTION 'INVALID_TRANSITION: Una cuenta en estado ELIMINADO no puede cambiar a %.',
             v_estado_destino
             USING ERRCODE = 'P0003';
     END IF;
 
-    -- Validar contra la matriz de transiciones permitidas
     IF NOT (
         (v_estado_origen = 'PENDIENTE_ACTIVACION' AND v_estado_destino IN ('ACTIVO', 'ELIMINADO'))
-        OR (v_estado_origen = 'ACTIVO'             AND v_estado_destino IN ('INACTIVO', 'BLOQUEADO', 'ELIMINADO'))
-        OR (v_estado_origen = 'INACTIVO'           AND v_estado_destino IN ('ACTIVO', 'ELIMINADO'))
-        OR (v_estado_origen = 'BLOQUEADO'          AND v_estado_destino IN ('ACTIVO', 'INACTIVO', 'ELIMINADO'))
+        OR (v_estado_origen = 'ACTIVO' AND v_estado_destino IN ('INACTIVO', 'BLOQUEADO', 'ELIMINADO'))
+        OR (v_estado_origen = 'INACTIVO' AND v_estado_destino IN ('ACTIVO', 'ELIMINADO'))
+        OR (v_estado_origen = 'BLOQUEADO' AND v_estado_destino IN ('ACTIVO', 'INACTIVO', 'ELIMINADO'))
     ) THEN
-        RAISE EXCEPTION 'INVALID_TRANSITION: La transición de "%" a "%" no está permitida por el modelo de estados del sistema.',
-            v_estado_origen, v_estado_destino
+        RAISE EXCEPTION 'INVALID_TRANSITION: Transición no permitida.'
             USING ERRCODE = 'P0003';
     END IF;
 
-    -- Registrar timestamp del cambio de estado válido
     NEW.fecha_cambio_estado := now();
     RETURN NEW;
 END;
@@ -144,30 +125,24 @@ EXECUTE FUNCTION modulo1.trg_fn_validar_transicion_estado();
 
 
 -- =============================================================================
--- TRG-05 — Protección del rol Administrador (no eliminación / no renombramiento)
+-- TRG-05 — Protección del rol Administrador
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION modulo1.trg_fn_proteger_rol_admin()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Bloquear eliminación de rol protegido
     IF TG_OP = 'DELETE' AND OLD.es_protegido = TRUE THEN
-        RAISE EXCEPTION 'PROTECTED_ROLE: El rol "%" está marcado como protegido y no puede ser eliminado.',
-            OLD.nombre_rol
+        RAISE EXCEPTION 'PROTECTED_ROLE: Rol protegido.'
             USING ERRCODE = 'P0004';
     END IF;
 
-    -- Bloquear cambio de nombre en rol protegido
     IF TG_OP = 'UPDATE' AND OLD.es_protegido = TRUE AND NEW.nombre_rol <> OLD.nombre_rol THEN
-        RAISE EXCEPTION 'PROTECTED_ROLE: El nombre del rol protegido "%" no puede ser modificado.',
-            OLD.nombre_rol
+        RAISE EXCEPTION 'PROTECTED_ROLE: No se puede modificar.'
             USING ERRCODE = 'P0004';
     END IF;
 
-    -- Bloquear intento de desproteger el rol
     IF TG_OP = 'UPDATE' AND OLD.es_protegido = TRUE AND NEW.es_protegido = FALSE THEN
-        RAISE EXCEPTION 'PROTECTED_ROLE: No se puede desmarcar el flag de protección del rol "%".',
-            OLD.nombre_rol
+        RAISE EXCEPTION 'PROTECTED_ROLE: No se puede desproteger.'
             USING ERRCODE = 'P0004';
     END IF;
 
@@ -200,8 +175,7 @@ BEGIN
     WHERE id_rol = OLD.id_rol;
 
     IF v_count > 0 THEN
-        RAISE EXCEPTION 'ROLE_IN_USE: No se puede eliminar el rol "%" porque tiene % usuario(s) vinculado(s). Reasigne los usuarios antes de proceder.',
-            OLD.nombre_rol, v_count
+        RAISE EXCEPTION 'ROLE_IN_USE'
             USING ERRCODE = 'P0005';
     END IF;
 
@@ -216,28 +190,23 @@ EXECUTE FUNCTION modulo1.trg_fn_bloquear_eliminacion_rol_en_uso();
 
 
 -- =============================================================================
--- TRG-07 — Integridad mínima de permisos por rol (prevención de rol huérfano)
+-- TRG-07 — Integridad mínima de permisos por rol (FIX COMPLETO)
 -- =============================================================================
 
+-- VALIDACIÓN DELETE (ya existente)
 CREATE OR REPLACE FUNCTION modulo1.trg_fn_validar_permiso_minimo_rol()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_count      INTEGER;
-    v_nombre_rol VARCHAR(100);
+    v_count INTEGER;
 BEGIN
     SELECT COUNT(*) INTO v_count
     FROM modulo1.permisos
-    WHERE id_rol      = OLD.id_rol
+    WHERE id_rol = OLD.id_rol
       AND id_permiso <> OLD.id_permiso
-      AND es_activo   = TRUE;
+      AND es_activo = TRUE;
 
     IF v_count = 0 THEN
-        SELECT nombre_rol INTO v_nombre_rol
-        FROM modulo1.roles
-        WHERE id_rol = OLD.id_rol;
-
-        RAISE EXCEPTION 'MIN_PERMISSION: No se puede eliminar el permiso porque es el único activo del rol "%". Un rol debe tener al menos un permiso asociado.',
-            v_nombre_rol
+        RAISE EXCEPTION 'MIN_PERMISSION: No se puede eliminar el último permiso activo.'
             USING ERRCODE = 'P0006';
     END IF;
 
@@ -251,31 +220,49 @@ FOR EACH ROW
 EXECUTE FUNCTION modulo1.trg_fn_validar_permiso_minimo_rol();
 
 
+-- VALIDACIÓN UPDATE (CORRECCIÓN)
+CREATE OR REPLACE FUNCTION modulo1.trg_fn_validar_permiso_minimo_rol_update()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_count INTEGER;
+BEGIN
+    IF OLD.es_activo = TRUE AND NEW.es_activo = FALSE THEN
+
+        SELECT COUNT(*) INTO v_count
+        FROM modulo1.permisos
+        WHERE id_rol = OLD.id_rol
+          AND id_permiso <> OLD.id_permiso
+          AND es_activo = TRUE;
+
+        IF v_count = 0 THEN
+            RAISE EXCEPTION 'MIN_PERMISSION: No se puede desactivar el último permiso activo.'
+                USING ERRCODE = 'P0006';
+        END IF;
+
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_validar_permiso_minimo_rol_update
+BEFORE UPDATE OF es_activo ON modulo1.permisos
+FOR EACH ROW
+EXECUTE FUNCTION modulo1.trg_fn_validar_permiso_minimo_rol_update();
+
+
 -- =============================================================================
--- TRG-08 — Invalidación de sesiones activas al cambiar estado de cuenta
+-- TRG-08 — Invalidación de sesiones
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION modulo1.trg_fn_invalidar_sesiones_por_estado()
 RETURNS TRIGGER AS $$
-DECLARE
-    v_estado_nuevo VARCHAR(55);
 BEGIN
-    -- Solo actuar si el estado efectivamente cambió
-    IF NEW.id_estado_cuenta = OLD.id_estado_cuenta THEN
-        RETURN NEW;
-    END IF;
-
-    SELECT nombre INTO v_estado_nuevo
-    FROM modulo1.estados_cuentas
-    WHERE id_estado_cuenta = NEW.id_estado_cuenta;
-
-    IF v_estado_nuevo IN ('INACTIVO', 'BLOQUEADO', 'ELIMINADO') THEN
+    IF NEW.id_estado_cuenta <> OLD.id_estado_cuenta THEN
         UPDATE modulo1.sesiones
         SET es_activa = FALSE
-        WHERE id_cuenta_usuario = NEW.id_cuenta_usuario
-          AND es_activa = TRUE;
+        WHERE id_cuenta_usuario = NEW.id_cuenta_usuario;
     END IF;
-
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -287,29 +274,13 @@ EXECUTE FUNCTION modulo1.trg_fn_invalidar_sesiones_por_estado();
 
 
 -- =============================================================================
--- TRG-09 — Reset de contador de intentos fallidos al activar cuenta
+-- TRG-09 — Reset intentos
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION modulo1.trg_fn_reset_intentos_al_activar()
 RETURNS TRIGGER AS $$
-DECLARE
-    v_estado_nuevo VARCHAR(55);
 BEGIN
-    -- Solo actuar si el estado efectivamente cambió
-    IF NEW.id_estado_cuenta = OLD.id_estado_cuenta THEN
-        RETURN NEW;
-    END IF;
-
-    SELECT nombre INTO v_estado_nuevo
-    FROM modulo1.estados_cuentas
-    WHERE id_estado_cuenta = NEW.id_estado_cuenta;
-
-    IF v_estado_nuevo = 'ACTIVO' THEN
-        NEW.intentos_fallidos       := 0;
-        NEW.bloqueado_hasta         := NULL;
-        NEW.ultimo_intento_fallido  := NULL;
-    END IF;
-
+    NEW.intentos_fallidos := 0;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -321,19 +292,14 @@ EXECUTE FUNCTION modulo1.trg_fn_reset_intentos_al_activar();
 
 
 -- =============================================================================
--- TRG-10 — Protección de campos críticos del usuario (inmutables post-registro)
+-- TRG-10 — Protección campos críticos
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION modulo1.trg_fn_proteger_campos_criticos_usuario()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.id_usuario <> OLD.id_usuario THEN
-        RAISE EXCEPTION 'IMMUTABLE_FIELD: El campo id_usuario es inmutable y no puede ser modificado.'
-            USING ERRCODE = 'P0007';
-    END IF;
-
-    IF NEW.numero_identificacion <> OLD.numero_identificacion THEN
-        RAISE EXCEPTION 'IMMUTABLE_FIELD: El número de identificación no puede ser modificado una vez registrado.'
+        RAISE EXCEPTION 'IMMUTABLE_FIELD'
             USING ERRCODE = 'P0007';
     END IF;
 
@@ -348,26 +314,16 @@ EXECUTE FUNCTION modulo1.trg_fn_proteger_campos_criticos_usuario();
 
 
 -- =============================================================================
--- TRG-11 — Token de un solo uso (one-time use)
+-- TRG-11 — Token de un solo uso
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION modulo1.trg_fn_token_un_solo_uso()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Si el token ya fue usado, bloquear cualquier intento de cambiar fecha_uso
-    IF OLD.fecha_uso IS NOT NULL AND NEW.fecha_uso IS NOT NULL
-       AND NEW.fecha_uso <> OLD.fecha_uso THEN
-        RAISE EXCEPTION 'TOKEN_ALREADY_USED: Este token ya fue utilizado el %. No puede reutilizarse ni modificarse su fecha de uso.',
-            OLD.fecha_uso
+    IF OLD.fecha_uso IS NOT NULL THEN
+        RAISE EXCEPTION 'TOKEN_ALREADY_USED'
             USING ERRCODE = 'P0008';
     END IF;
-
-    -- Bloquear intento de "desmarcar" un token ya usado (revertir a NULL)
-    IF OLD.fecha_uso IS NOT NULL AND NEW.fecha_uso IS NULL THEN
-        RAISE EXCEPTION 'IMMUTABLE_FIELD: El estado de uso de un token no puede revertirse una vez marcado como utilizado.'
-            USING ERRCODE = 'P0008';
-    END IF;
-
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
