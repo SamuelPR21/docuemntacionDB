@@ -6,7 +6,7 @@
 --              que deben ser protegidas a nivel de base de datos.
 -- Esquema: modulo9
 -- Motor: PostgreSQL
--- Versión: 1.0
+-- Versión: 1.1 (Primera corrección)
 -- =============================================================================
 -- ÍNDICE
 --   TRG-M9-01  Unicidad de nombre de especie (case-insensitive)
@@ -117,18 +117,54 @@ EXECUTE FUNCTION modulo9.trg_fn_especies_nombre_formato();
 
 CREATE OR REPLACE FUNCTION modulo9.trg_fn_especies_audit()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_tipo_operacion TEXT;
+    v_valores_anteriores JSONB;
+    v_valores_nuevos JSONB;
 BEGIN
+    -- Determinar tipo de operación
+    IF TG_OP = 'INSERT' THEN
+        v_tipo_operacion := 'CREATE';
+        v_valores_anteriores := NULL;
+        v_valores_nuevos := jsonb_build_object(
+            'id_especie',   NEW.id_especie,
+            'nombre',       NEW.nombre,
+            'es_activo',    NEW.es_activo
+        );
+    ELSIF TG_OP = 'UPDATE' THEN
+        -- Distinguir desactivación de edición
+        IF OLD.es_activo = TRUE AND NEW.es_activo = FALSE THEN
+            v_tipo_operacion := 'DEACTIVATE';
+        ELSE
+            v_tipo_operacion := 'UPDATE';
+        END IF;
+        v_valores_anteriores := jsonb_build_object(
+            'id_especie',   OLD.id_especie,
+            'nombre',       OLD.nombre,
+            'es_activo',    OLD.es_activo
+        );
+        v_valores_nuevos := jsonb_build_object(
+            'id_especie',   NEW.id_especie,
+            'nombre',       NEW.nombre,
+            'es_activo',    NEW.es_activo
+        );
+    END IF;
+
     INSERT INTO modulo9.gestion_especies (
         id_usuario,
         id_especie,
         fecha_gestion,
-        id_umbral_ambiental
+        tipo_operacion,
+        valores_anteriores,
+        valores_nuevos
     )
     VALUES (
-        NEW.id_especie,  -- proxy hasta que el backend provea el usuario real via current_setting
-        NEW.id_especie,
+        NEW.id_usuario_auditoria,  -- campo provisto por el backend en la sesión
+        COALESCE(NEW.id_especie, OLD.id_especie),
         now(),
-        NULL
+        v_tipo_operacion,
+        v_valores_anteriores,
+        v_valores_nuevos
     );
 
     RETURN NEW;
@@ -231,21 +267,32 @@ EXECUTE FUNCTION modulo9.trg_fn_ciclos_biologicos_duracion_valida();
 CREATE OR REPLACE FUNCTION modulo9.trg_fn_ciclos_biologicos_no_desactivar_en_uso()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_count INTEGER;
+    v_ciclos  INTEGER;
+    v_activos INTEGER;
 BEGIN
     IF OLD.es_activo = TRUE AND NEW.es_activo = FALSE THEN
 
-        SELECT COUNT(*) INTO v_count
+        -- Verificación 1: ciclos productivos vinculados
+        SELECT COUNT(*) INTO v_ciclos
         FROM modulo9.ciclos_productivos_biologicos
         WHERE id_ciclo_biologico = OLD.id_ciclo_biologico;
 
-        IF v_count > 0 THEN
-            RAISE EXCEPTION 'STAGE_IN_USE: No se puede desactivar la etapa "%" porque tiene % ciclo(s) productivo(s) vinculado(s). Traslade los activos antes de proceder.',
-                OLD.nombre, v_count
-                USING ERRCODE = 'P0106';
-        END IF;
-    END IF;
+        -- Verificación 2: activos biológicos (animales/lotes) en esta etapa
+        SELECT COUNT(*) INTO v_activos
+        FROM modulo9.activos_biologicos
+        WHERE id_ciclo_biologico = OLD.id_ciclo_biologico
+          AND es_activo = TRUE;
 
+        IF v_ciclos > 0 OR v_activos > 0 THEN
+            RAISE EXCEPTION
+                'STAGE_IN_USE: No se puede desactivar la etapa "%" porque tiene '
+                '% ciclo(s) productivo(s) y % activo(s) biológico(s) vinculado(s). '
+                'Traslade los activos antes de proceder.',
+                OLD.nombre, v_ciclos, v_activos
+            USING ERRCODE = 'P0106';
+        END IF;
+
+    END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -425,29 +472,58 @@ EXECUTE FUNCTION modulo9.trg_fn_umbral_ambiental_rango_valido();
 CREATE OR REPLACE FUNCTION modulo9.trg_fn_niveles_alerta_solapamiento()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_count INTEGER;
+    v_count       INTEGER;
+    v_umbral_min  NUMERIC;
+    v_umbral_max  NUMERIC;
 BEGIN
-    -- Validar coherencia interna del nivel
+    -- 1. Coherencia interna del nivel
     IF NEW.limite_inferior >= NEW.limite_superior THEN
-        RAISE EXCEPTION 'INVALID_ALERT_RANGE: El límite inferior (%) debe ser estrictamente menor al límite superior (%) del nivel de alerta.',
+        RAISE EXCEPTION
+            'INVALID_ALERT_RANGE: El límite inferior (%) debe ser '
+            'estrictamente menor al límite superior (%) del nivel de alerta.',
             NEW.limite_inferior, NEW.limite_superior
-            USING ERRCODE = 'P0113';
+        USING ERRCODE = 'P0113';
     END IF;
 
-    -- Detectar solapamiento con otros niveles del mismo umbral
+    -- 2. Detectar solapamiento con otros niveles del mismo umbral
     SELECT COUNT(*) INTO v_count
     FROM modulo9.niveles_alerta_ambientales
-    WHERE id_umbral_ambiental        = NEW.id_umbral_ambiental
+    WHERE id_umbral_ambiental = NEW.id_umbral_ambiental
       AND id_nivel_alerta_ambiental <> COALESCE(NEW.id_nivel_alerta_ambiental, -1)
       AND (
             NEW.limite_inferior < limite_superior
-            AND NEW.limite_superior > limite_inferior
-          );
+        AND NEW.limite_superior > limite_inferior
+      );
 
     IF v_count > 0 THEN
-        RAISE EXCEPTION 'OVERLAPPING_ALERT: El rango [%, %] del nuevo nivel de alerta se solapa con un rango ya existente para este umbral ambiental.',
+        RAISE EXCEPTION
+            'OVERLAPPING_ALERT: El rango [%, %] del nuevo nivel de alerta '
+            'se solapa con un rango ya existente para este umbral ambiental.',
             NEW.limite_inferior, NEW.limite_superior
-            USING ERRCODE = 'P0114';
+        USING ERRCODE = 'P0114';
+    END IF;
+
+    -- 3. Validar que el nivel esté contenido dentro del rango del umbral padre
+    SELECT valor_min, valor_max
+    INTO   v_umbral_min, v_umbral_max
+    FROM   modulo9.umbrales_ambientales
+    WHERE  id_umbral_ambiental = NEW.id_umbral_ambiental;
+
+    IF v_umbral_min IS NULL THEN
+        RAISE EXCEPTION
+            'THRESHOLD_NOT_FOUND: No existe un umbral ambiental con ID %.',
+            NEW.id_umbral_ambiental
+        USING ERRCODE = 'P0115';
+    END IF;
+
+    IF NEW.limite_inferior < v_umbral_min OR NEW.limite_superior > v_umbral_max THEN
+        RAISE EXCEPTION
+            'OUT_OF_THRESHOLD_RANGE: El nivel de alerta [%, %] excede el rango '
+            'del umbral ambiental [%, %]. Los niveles deben estar contenidos '
+            'dentro del rango general.',
+            NEW.limite_inferior, NEW.limite_superior,
+            v_umbral_min, v_umbral_max
+        USING ERRCODE = 'P0115';
     END IF;
 
     RETURN NEW;
@@ -474,20 +550,26 @@ BEGIN
     IF NEW.es_activo = TRUE THEN
         SELECT COUNT(*) INTO v_count
         FROM modulo9.configuraciones_globales
-        WHERE es_activo = TRUE;
+        WHERE es_activo = TRUE
+          AND id_configuracion_global <> COALESCE(NEW.id_configuracion_global, -1);
 
         IF v_count > 0 THEN
-            RAISE EXCEPTION 'DUPLICATE_GLOBAL_CONFIG: Ya existe una configuración global activa. Actualice la configuración vigente en lugar de crear una nueva.'
-                USING ERRCODE = 'P0115';
+            RAISE EXCEPTION
+                'DUPLICATE_GLOBAL_CONFIG: Ya existe una configuración global activa. '
+                'Actualice la configuración vigente en lugar de crear una nueva.'
+            USING ERRCODE = 'P0115';
         END IF;
     END IF;
-
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+-- Se elimina el trigger anterior y se crea uno nuevo que cubra INSERT y UPDATE
+DROP TRIGGER IF EXISTS trg_configuracion_global_unicidad
+    ON modulo9.configuraciones_globales;
+
 CREATE TRIGGER trg_configuracion_global_unicidad
-BEFORE INSERT ON modulo9.configuraciones_globales
+BEFORE INSERT OR UPDATE ON modulo9.configuraciones_globales  -- ← cubre ambos casos
 FOR EACH ROW
 EXECUTE FUNCTION modulo9.trg_fn_configuracion_global_unicidad();
 
@@ -535,6 +617,8 @@ EXECUTE FUNCTION modulo9.trg_fn_configuracion_global_heartbeat_valido();
 -- Evento:   BEFORE INSERT OR UPDATE OF nombre
 -- =============================================================================
 
+-- Solo se reemplaza la función; el trigger ya está bien definido
+
 CREATE OR REPLACE FUNCTION modulo9.trg_fn_finca_nombre_unique()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -543,23 +627,27 @@ DECLARE
 BEGIN
     NEW.nombre := TRIM(NEW.nombre);
 
-    -- Validar formato: solo letras, espacios, acentos y ñ
+    -- Validar formato: solo letras, espacios, acentos y ñ  (operador !~ correcto)
     IF NEW.nombre !~ '^[A-Za-záéíóúÁÉÍÓÚñÑüÜ\s]+$' THEN
-        RAISE EXCEPTION 'INVALID_FORMAT: El nombre de la finca solo permite letras, espacios y caracteres del español. No se admiten números ni símbolos. Valor: "%".',
+        RAISE EXCEPTION
+            'INVALID_FORMAT: El nombre de la finca solo permite letras, espacios '
+            'y caracteres del español. No se admiten números ni símbolos. Valor: "%".',
             NEW.nombre
-            USING ERRCODE = 'P0118';
+        USING ERRCODE = 'P0118';
     END IF;
 
     -- Validar unicidad global
     SELECT COUNT(*) INTO v_count_global
     FROM modulo9.fincas
     WHERE LOWER(TRIM(nombre)) = LOWER(NEW.nombre)
-      AND id_finca           <> COALESCE(NEW.id_finca, -1);
+      AND id_finca <> COALESCE(NEW.id_finca, -1);
 
     IF v_count_global > 0 THEN
-        RAISE EXCEPTION 'DUPLICATE_FARM_GLOBAL: Ya existe una finca con el nombre "%" en el sistema (unicidad global).',
+        RAISE EXCEPTION
+            'DUPLICATE_FARM_GLOBAL: Ya existe una finca con el nombre "%" '
+            'en el sistema (unicidad global).',
             NEW.nombre
-            USING ERRCODE = 'P0119';
+        USING ERRCODE = 'P0119';
     END IF;
 
     -- Validar unicidad por productor
@@ -567,13 +655,15 @@ BEGIN
         SELECT COUNT(*) INTO v_count_productor
         FROM modulo9.fincas
         WHERE LOWER(TRIM(nombre)) = LOWER(NEW.nombre)
-          AND id_usuario          = NEW.id_usuario
-          AND id_finca           <> COALESCE(NEW.id_finca, -1);
+          AND id_usuario = NEW.id_usuario
+          AND id_finca <> COALESCE(NEW.id_finca, -1);
 
         IF v_count_productor > 0 THEN
-            RAISE EXCEPTION 'DUPLICATE_FARM_PRODUCER: El productor ya tiene una finca registrada con el nombre "%".',
+            RAISE EXCEPTION
+                'DUPLICATE_FARM_PRODUCER: El productor ya tiene una finca '
+                'registrada con el nombre "%".',
                 NEW.nombre
-                USING ERRCODE = 'P0120';
+            USING ERRCODE = 'P0120';
         END IF;
     END IF;
 
@@ -648,21 +738,40 @@ EXECUTE FUNCTION modulo9.trg_fn_finca_coordenadas_validas();
 CREATE OR REPLACE FUNCTION modulo9.trg_fn_finca_no_delete_con_dependencias()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_infra_count INTEGER;
+    v_infra_count     INTEGER;
+    v_iot_count       INTEGER;
+    v_activos_count   INTEGER;
 BEGIN
+    -- Verificar infraestructuras
     SELECT COUNT(*) INTO v_infra_count
     FROM modulo9.infraestructuras
     WHERE id_finca = OLD.id_finca;
 
-    IF v_infra_count > 0 THEN
-        RAISE EXCEPTION 'FARM_HAS_DEPENDENCIES: La finca "%" tiene % infraestructura(s) asociada(s) y no puede eliminarse físicamente. Use la desactivación lógica (es_activo = false).',
-            OLD.nombre, v_infra_count
-            USING ERRCODE = 'P0124';
+    -- Verificar dispositivos IoT directamente asociados a la finca
+    SELECT COUNT(*) INTO v_iot_count
+    FROM modulo9.dispositivos_iot
+    WHERE id_finca = OLD.id_finca;
+
+    -- Verificar activos biológicos directamente asociados a la finca
+    SELECT COUNT(*) INTO v_activos_count
+    FROM modulo9.activos_biologicos
+    WHERE id_finca = OLD.id_finca;
+
+    IF v_infra_count > 0 OR v_iot_count > 0 OR v_activos_count > 0 THEN
+        RAISE EXCEPTION
+            'FARM_HAS_DEPENDENCIES: La finca "%" no puede eliminarse físicamente. '
+            'Tiene % infraestructura(s), % dispositivo(s) IoT y % activo(s) '
+            'biológico(s) asociado(s). Use la desactivación lógica (es_activo = false).',
+            OLD.nombre, v_infra_count, v_iot_count, v_activos_count
+        USING ERRCODE = 'P0124';
     END IF;
 
-    RAISE EXCEPTION 'NO_PHYSICAL_DELETE: Las fincas no pueden eliminarse físicamente del sistema. Use la desactivación lógica (es_activo = false). Finca: "%".',
+    -- Bloqueo general aunque no tenga dependencias (política de no eliminación física)
+    RAISE EXCEPTION
+        'NO_PHYSICAL_DELETE: Las fincas no pueden eliminarse físicamente del sistema. '
+        'Use la desactivación lógica (es_activo = false). Finca: "%".',
         OLD.nombre
-        USING ERRCODE = 'P0124';
+    USING ERRCODE = 'P0124';
 
     RETURN NULL;
 END;
@@ -893,24 +1002,49 @@ EXECUTE FUNCTION modulo9.trg_fn_sensor_asociacion_unica_activa();
 CREATE OR REPLACE FUNCTION modulo9.trg_fn_calibracion_dispositivo_activo()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_es_activo BOOLEAN;
-    v_serial    VARCHAR(50);
+    v_dispositivo_activo BOOLEAN;
+    v_serial             VARCHAR(50);
+    v_sensor_activo      BOOLEAN;
 BEGIN
+    -- Verificar dispositivo
     SELECT es_activo, serial
-    INTO v_es_activo, v_serial
-    FROM modulo9.dispositivos_iot
-    WHERE id_dispositivo_iot = NEW.id_dispositivo_iot;
+    INTO   v_dispositivo_activo, v_serial
+    FROM   modulo9.dispositivos_iot
+    WHERE  id_dispositivo_iot = NEW.id_dispositivo_iot;
 
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'DEVICE_NOT_FOUND: El dispositivo IoT con ID % no existe en el sistema.',
+    IF v_dispositivo_activo IS NULL THEN
+        RAISE EXCEPTION
+            'DEVICE_NOT_FOUND: El dispositivo IoT con ID % no existe en el sistema.',
             NEW.id_dispositivo_iot
-            USING ERRCODE = 'P0131';
+        USING ERRCODE = 'P0131';
     END IF;
 
-    IF v_es_activo = FALSE THEN
-        RAISE EXCEPTION 'INACTIVE_DEVICE: No se puede registrar una calibración para el dispositivo "%" porque está inactivo. Active el dispositivo antes de calibrar.',
+    IF v_dispositivo_activo = FALSE THEN
+        RAISE EXCEPTION
+            'INACTIVE_DEVICE: No se puede registrar una calibración para el '
+            'dispositivo "%" porque está inactivo. Active el dispositivo antes de calibrar.',
             v_serial
-            USING ERRCODE = 'P0132';
+        USING ERRCODE = 'P0132';
+    END IF;
+
+    -- Verificar que el sensor también esté activo
+    SELECT es_activo INTO v_sensor_activo
+    FROM   modulo9.sensores
+    WHERE  id_sensor = NEW.id_sensor;
+
+    IF v_sensor_activo IS NULL THEN
+        RAISE EXCEPTION
+            'SENSOR_NOT_FOUND: El sensor con ID % no existe en el sistema.',
+            NEW.id_sensor
+        USING ERRCODE = 'P0133';
+    END IF;
+
+    IF v_sensor_activo = FALSE THEN
+        RAISE EXCEPTION
+            'INACTIVE_SENSOR: No se puede registrar una calibración para el '
+            'sensor ID % porque está inactivo. Active el sensor antes de calibrar.',
+            NEW.id_sensor
+        USING ERRCODE = 'P0133';
     END IF;
 
     RETURN NEW;
@@ -1001,37 +1135,62 @@ EXECUTE FUNCTION modulo9.trg_fn_plantilla_inmutable();
 CREATE OR REPLACE FUNCTION modulo9.trg_fn_identidad_visual_audit()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO modulo9.auditorias_visuales (
-        id_usuario,
-        fecha_creacion,
-        valor_anterior,
-        valor_nuevo
-    )
-    VALUES (
-        NEW.id_usuario,
-        now(),
-        jsonb_build_object(
-            'logo_path',        OLD.logo_path,
-            'primary_color',    OLD.primary_color,
-            'secondary_color',  OLD.secondary_color,
-            'org_display_name', OLD.org_display_name,
-            'version',          OLD.version
-        ),
-        jsonb_build_object(
-            'logo_path',        NEW.logo_path,
-            'primary_color',    NEW.primary_color,
-            'secondary_color',  NEW.secondary_color,
-            'org_display_name', NEW.org_display_name,
-            'version',          NEW.version
+    IF TG_OP = 'INSERT' THEN
+        INSERT INTO modulo9.auditorias_visuales (
+            id_usuario,
+            fecha_creacion,
+            valor_anterior,
+            valor_nuevo
         )
-    );
+        VALUES (
+            NEW.id_usuario,
+            now(),
+            NULL,   -- no hay estado previo en una creación
+            jsonb_build_object(
+                'logo_path',        NEW.logo_path,
+                'primary_color',    NEW.primary_color,
+                'secondary_color',  NEW.secondary_color,
+                'org_display_name', NEW.org_display_name,
+                'version',          NEW.version
+            )
+        );
+
+    ELSIF TG_OP = 'UPDATE' THEN
+        INSERT INTO modulo9.auditorias_visuales (
+            id_usuario,
+            fecha_creacion,
+            valor_anterior,
+            valor_nuevo
+        )
+        VALUES (
+            NEW.id_usuario,
+            now(),
+            jsonb_build_object(
+                'logo_path',        OLD.logo_path,
+                'primary_color',    OLD.primary_color,
+                'secondary_color',  OLD.secondary_color,
+                'org_display_name', OLD.org_display_name,
+                'version',          OLD.version
+            ),
+            jsonb_build_object(
+                'logo_path',        NEW.logo_path,
+                'primary_color',    NEW.primary_color,
+                'secondary_color',  NEW.secondary_color,
+                'org_display_name', NEW.org_display_name,
+                'version',          NEW.version
+            )
+        );
+    END IF;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+-- Reemplazar el trigger anterior que solo cubría UPDATE
+DROP TRIGGER IF EXISTS trg_identidad_visual_audit ON modulo9.identidad_visuales;
+
 CREATE TRIGGER trg_identidad_visual_audit
-AFTER UPDATE ON modulo9.identidad_visuales
+AFTER INSERT OR UPDATE ON modulo9.identidad_visuales  -- ← ahora cubre INSERT también
 FOR EACH ROW
 EXECUTE FUNCTION modulo9.trg_fn_identidad_visual_audit();
 
@@ -1042,21 +1201,28 @@ EXECUTE FUNCTION modulo9.trg_fn_identidad_visual_audit();
 -- Evento:   BEFORE INSERT OR UPDATE
 -- =============================================================================
 
+-- La función ya estaba correcta en el PDF (usa !~), el error del informe
+-- apunta al mismo patrón de TRG-M9-16. Se deja la versión limpia y correcta:
+
 CREATE OR REPLACE FUNCTION modulo9.trg_fn_identidad_visual_colores_validos()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.primary_color IS NOT NULL
        AND NEW.primary_color !~ '^#[0-9A-Fa-f]{6}$' THEN
-        RAISE EXCEPTION 'INVALID_COLOR: El color primario "%" no tiene formato hexadecimal válido (#RRGGBB de 6 dígitos).',
+        RAISE EXCEPTION
+            'INVALID_COLOR: El color primario "%" no tiene formato hexadecimal '
+            'válido (#RRGGBB de 6 dígitos).',
             NEW.primary_color
-            USING ERRCODE = 'P0135';
+        USING ERRCODE = 'P0135';
     END IF;
 
     IF NEW.secondary_color IS NOT NULL
        AND NEW.secondary_color !~ '^#[0-9A-Fa-f]{6}$' THEN
-        RAISE EXCEPTION 'INVALID_COLOR: El color secundario "%" no tiene formato hexadecimal válido (#RRGGBB de 6 dígitos).',
+        RAISE EXCEPTION
+            'INVALID_COLOR: El color secundario "%" no tiene formato hexadecimal '
+            'válido (#RRGGBB de 6 dígitos).',
             NEW.secondary_color
-            USING ERRCODE = 'P0135';
+        USING ERRCODE = 'P0135';
     END IF;
 
     RETURN NEW;
