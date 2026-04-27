@@ -1,1 +1,1 @@
--- Tener en cuenta que existen versionamientos, entonces la ultima version funcional con correcciones va a ser em mayor numero de versionado en los informes y .sql :D
+-- Tener en cuenta que los documentos están nombrados según su versionamiento; con v1.0 como punto de partida, entonces, la ultima version funcional de los triggers con correcciones integradas van a ser el documento con mayor numero de versionado en los informes y .sql :D
