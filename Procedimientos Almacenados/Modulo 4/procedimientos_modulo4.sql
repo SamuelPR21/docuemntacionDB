@@ -38,6 +38,23 @@ BEGIN
         p_temperatura_rectal, p_frecuencia_cardiaca, p_frecuencia_respiratoria, p_condicion_corporal
     ) RETURNING id_observacion_clinica INTO v_id_observacion;
 
+    -- Registrar auditoría (RF-10)
+    CALL modulo1.sp_registrar_auditoria(
+        p_id_usuario,
+        NULL,
+        5, -- OBSERVACION_CLINICA (Asumido)
+        'Modulo 4',
+        'SANIDAD',
+        'Registro de observación clínica para activo ID: ' || p_id_activo_biologico,
+        'EXITOSO',
+        'COMPLETADO',
+        jsonb_build_object(
+            'id_observacion', v_id_observacion,
+            'temperatura', p_temperatura_rectal,
+            'f_cardiaca', p_frecuencia_cardiaca
+        )
+    );
+
     COMMIT;
 EXCEPTION
     WHEN OTHERS THEN

@@ -81,12 +81,30 @@ CREATE OR REPLACE PROCEDURE modulo3.sp_registrar_evento_edge(
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    -- Inserción del evento técnico
     INSERT INTO modulo3.eventos_edge_computing (
         id_dispositivo_iot, tipo_evento, descripcion, severidad,
         fecha_ocurrencia, fecha_recepcion, datos_contexto
     ) VALUES (
         p_id_dispositivo_iot, p_tipo_evento, p_descripcion, p_severidad,
         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, p_datos_contexto
+    );
+
+    -- Registrar auditoría (RF-10)
+    CALL modulo1.sp_registrar_auditoria(
+        NULL, -- El sistema Edge usualmente no tiene un ID de usuario humano directo
+        NULL,
+        6, -- EVENTO_SISTEMA (Asumido)
+        'Modulo 3',
+        'TECNICO',
+        'Evento Edge detectado: ' || p_tipo_evento || ' en dispositivo ' || p_id_dispositivo_iot,
+        'EXITOSO',
+        'ACTIVO',
+        jsonb_build_object(
+            'tipo', p_tipo_evento,
+            'severidad', p_severidad,
+            'contexto', p_datos_contexto
+        )
     );
 
     COMMIT;

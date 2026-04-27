@@ -80,6 +80,23 @@ BEGIN
         v_id_usuario, v_id_estado_pendiente, FALSE
     );
 
+    -- Registrar auditoría (RF-01, RF-10)
+    CALL modulo1.sp_registrar_auditoria(
+        v_id_usuario,
+        NULL, -- id_sesion
+        1, -- Tipo evento: CREACION (Asumiendo 1 según catálogo)
+        'Modulo 1',
+        'AUTENTICACION',
+        'Registro exitoso de nuevo usuario: ' || p_correo_electronico,
+        'EXITOSO',
+        'PENDIENTE',
+        jsonb_build_object(
+            'id_usuario', v_id_usuario,
+            'correo', p_correo_electronico,
+            'rol_asignado', v_id_rol
+        )
+    );
+
     COMMIT;
 EXCEPTION
     WHEN OTHERS THEN
@@ -225,13 +242,28 @@ BEGIN
         WHERE id_usuario = p_id_usuario;
     END IF;
 
-    -- Actualizar estado si es admin y lo mandó
-    IF v_es_admin AND p_id_estado_cuenta IS NOT NULL THEN
-        UPDATE modulo1.cuentas_usuarios
-        SET id_estado_cuenta = p_id_estado_cuenta,
-            fecha_cambio_estado = CURRENT_TIMESTAMP
-        WHERE id_usuario = p_id_usuario;
-    END IF;
+    -- Registrar auditoría del cambio (RF-05, RF-10)
+    CALL modulo1.sp_registrar_auditoria(
+        p_id_actor,
+        NULL, -- id_sesion
+        4, -- Tipo evento: MODIFICACION_USUARIO (Asumiendo 4)
+        'Modulo 1',
+        'ADMINISTRACION',
+        'Actualización de datos del usuario ' || p_id_usuario,
+        'EXITOSO',
+        'ACTIVO',
+        jsonb_build_object(
+            'old_data', (SELECT row_to_json(u) FROM modulo1.usuarios u WHERE id_usuario = p_id_usuario),
+            'new_data', jsonb_build_object(
+                'nombres', p_nombres,
+                'apellidos', p_apellidos,
+                'correo', p_correo_electronico,
+                'telefono', p_telefono,
+                'id_rol', p_id_rol,
+                'id_estado', p_id_estado_cuenta
+            )
+        )
+    );
 
     COMMIT;
 EXCEPTION
@@ -245,6 +277,13 @@ $$;
 -- ------------------------------------------------------------------------------
 -- RF-10: Registrar Auditoría
 -- ------------------------------------------------------------------------------
+-- ==============================================================================
+-- REQUISITOS PREVIOS (RF-10): Ejecutar estos cambios en el esquema si no existen
+-- ==============================================================================
+-- ALTER TABLE modulo1.eventos ADD COLUMN IF NOT EXISTS id_sesion INTEGER;
+-- ALTER TABLE modulo1.eventos ADD COLUMN IF NOT EXISTS hash_integridad TEXT;
+-- CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE OR REPLACE PROCEDURE modulo1.sp_registrar_auditoria(
     p_id_usuario INT,
     p_id_sesion INT,
@@ -261,41 +300,48 @@ AS $$
 DECLARE
     v_fecha_actual TIMESTAMP := CURRENT_TIMESTAMP;
     v_hash_data TEXT;
-    v_hash_resultado TEXT;
+    v_direccion_ip VARCHAR(45);
+    v_user_agent VARCHAR(255);
 BEGIN
-    -- Validar existencia de usuario
+    -- 1. Obtener datos de sesión (IP y User Agent) para auditoría (RF-10)
+    SELECT direccion_ip, agente_usuario 
+    INTO v_direccion_ip, v_user_agent
+    FROM modulo1.sesiones 
+    WHERE id_sesion = p_id_sesion;
+
+    -- 2. Validar existencia de usuario
     IF NOT EXISTS (SELECT 1 FROM modulo1.usuarios WHERE id_usuario = p_id_usuario) THEN
         RAISE EXCEPTION 'Error de auditoría: El usuario especificado no existe.';
     END IF;
 
-    -- Validar existencia de sesión
-    IF NOT EXISTS (SELECT 1 FROM modulo1.sesiones WHERE id_sesion = p_id_sesion) THEN
-        RAISE EXCEPTION 'Error de auditoría: La sesión especificada no existe.';
-    END IF;
-
-    -- Generar Hash SHA-256 para integridad (RF-10)
-    -- Concatenamos campos clave para la firma
-    v_hash_data := p_id_usuario::TEXT || '|' || p_id_sesion::TEXT || '|' || p_id_tipo_evento::TEXT || '|' || v_fecha_actual::TEXT || '|' || p_resultado::TEXT;
+    -- 3. Generar Hash SHA-256 para integridad (RF-10)
+    -- Concatenamos campos clave para la firma: id_usuario, tipo_evento, modulo, fecha, resultado
+    v_hash_data := COALESCE(p_id_usuario::TEXT, '0') || '|' || 
+                   COALESCE(p_id_tipo_evento::TEXT, '0') || '|' || 
+                   COALESCE(p_modulo, '') || '|' || 
+                   v_fecha_actual::TEXT || '|' || 
+                   COALESCE(p_resultado::TEXT, '');
     
-    -- Si pgcrypto no está disponible, se asume que el backend podría manejarlo, 
-    -- pero para cumplir procedemos con una simulación o usamos digest si está disponible.
-    -- v_hash_resultado := encode(digest(v_hash_data, 'sha256'), 'hex');
-    -- Por seguridad en la ejecución, lo guardamos en el campo detalle como 'firma_digital'
-    
-    -- Insertar en tabla eventos
+    -- 4. Insertar en tabla eventos utilizando columnas dedicadas para trazabilidad e integridad
     INSERT INTO modulo1.eventos (
         tipo_evento, descripcion, fecha_evento, modulo, 
-        resultado, detalle, id_usuario, categoria, estado
+        resultado, detalle, id_usuario, categoria, estado,
+        id_sesion, hash_integridad
     ) VALUES (
         p_id_tipo_evento, 
         p_descripcion, 
         v_fecha_actual, 
         p_modulo, 
         p_resultado, 
-        p_detalle || jsonb_build_object('id_sesion', p_id_sesion, 'hash_verificacion', md5(v_hash_data)), -- md5 como fallback si no hay pgcrypto, idealmente sha256
+        p_detalle || jsonb_build_object(
+            'direccion_ip', v_direccion_ip,
+            'user_agent', v_user_agent
+        ),
         p_id_usuario, 
         p_categoria, 
-        p_estado
+        p_estado,
+        p_id_sesion,
+        encode(digest(v_hash_data, 'sha256'), 'hex') -- Firma SHA-256 (RF-10)
     );
 
     COMMIT;

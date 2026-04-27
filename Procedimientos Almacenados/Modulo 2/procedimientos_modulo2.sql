@@ -7,6 +7,7 @@
 -- RF-33: Registro de Activos Biológicos
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE PROCEDURE modulo2.sp_registrar_activo_biologico(
+    p_id_usuario INT, -- Requerido para auditoría
     p_id_especie INT,
     p_identificador VARCHAR,
     p_id_infraestructura INT,
@@ -82,11 +83,21 @@ BEGIN
         );
     END IF;
 
-    -- Registrar estado inicial en el histórico
-    INSERT INTO modulo2.historicos_estados_activos (
-        id_activo_biologico, id_estado, fecha_inicio, id_usuario
-    ) VALUES (
-        v_id_activo, v_id_estado_activo, CURRENT_TIMESTAMP, NULL
+    -- 4. Registrar en auditoría (RF-10)
+    CALL modulo1.sp_registrar_auditoria(
+        p_id_usuario,
+        NULL, -- id_sesion
+        1, -- CREACION
+        'Modulo 2',
+        'ACTIVOS',
+        'Registro de nuevo activo: ' || COALESCE(p_identificador, 'Poblacional ID ' || v_id_activo),
+        'EXITOSO',
+        'ACTIVO',
+        jsonb_build_object(
+            'id_activo', v_id_activo,
+            'tipo', p_tipo,
+            'infraestructura', p_id_infraestructura
+        )
     );
 
     COMMIT;
@@ -128,11 +139,21 @@ BEGIN
         p_id_activo_biologico, CURRENT_TIMESTAMP, p_descripcion, p_id_usuario
     ) RETURNING id_eventos INTO v_id_evento;
 
-    -- Insertar el evento sanitario específico
-    INSERT INTO modulo2.eventos_sanitarios (
-        id_evento, diagnostico, medicamento, dosis, unidad_dosis, frecuencia
-    ) VALUES (
-        v_id_evento, p_diagnostico, p_medicamento, p_dosis, p_unidad_dosis, p_frecuencia
+    -- Registrar auditoría (RF-10)
+    CALL modulo1.sp_registrar_auditoria(
+        p_id_usuario,
+        NULL,
+        1, -- CREACION
+        'Modulo 2',
+        'SANIDAD',
+        'Registro de evento sanitario para activo ID: ' || p_id_activo_biologico,
+        'EXITOSO',
+        'ACTIVO',
+        jsonb_build_object(
+            'id_evento', v_id_evento,
+            'diagnostico', p_diagnostico,
+            'medicamento', p_medicamento
+        )
     );
 
     COMMIT;
@@ -183,10 +204,22 @@ BEGIN
         p_id_activo_biologico, p_id_infraestructura_destino, 'entrada', CURRENT_TIMESTAMP, p_id_usuario, p_motivo
     );
 
-    -- Actualizar infraestructura del activo biológico
-    UPDATE modulo2.activos_biologicos
-    SET id_infraestructura = p_id_infraestructura_destino
-    WHERE id_activo_biologico = p_id_activo_biologico;
+    -- Registrar auditoría (RF-10)
+    CALL modulo1.sp_registrar_auditoria(
+        p_id_usuario,
+        NULL,
+        4, -- MOVIMIENTO
+        'Modulo 2',
+        'LOGISTICA',
+        'Transferencia de activo ID ' || p_id_activo_biologico || ' de ' || p_id_infraestructura_origen || ' a ' || p_id_infraestructura_destino,
+        'EXITOSO',
+        'ACTIVO',
+        jsonb_build_object(
+            'origen', p_id_infraestructura_origen,
+            'destino', p_id_infraestructura_destino,
+            'motivo', p_motivo
+        )
+    );
 
     COMMIT;
 EXCEPTION

@@ -46,9 +46,25 @@ BEGIN
         TRIM(p_nombre), TRIM(p_descripcion), CURRENT_TIMESTAMP, TRUE
     ) RETURNING id_especie INTO v_id_especie;
 
-    -- 2. Registro en auditoría gestion_especies (RF-15)
-    -- Buscamos un umbral ambiental por defecto o creamos uno vacío si es necesario (el esquema lo exige)
-    SELECT id_umbral_ambiental INTO v_id_umbral_defecto FROM modulo9.umbrales_ambientales LIMIT 1;
+    -- 2. Registro en auditoría central (RF-10, RF-15)
+    CALL modulo1.sp_registrar_auditoria(
+        p_id_usuario,
+        NULL, -- id_sesion
+        1, -- Tipo evento: CREACION
+        'Modulo 9',
+        'CATALOGOS',
+        'Registro de nueva especie: ' || TRIM(p_nombre),
+        'EXITOSO',
+        'ACTIVO',
+        jsonb_build_object(
+            'id_especie', v_id_especie,
+            'nombre', TRIM(p_nombre),
+            'descripcion', TRIM(p_descripcion)
+        )
+    );
+
+    -- 3. Registro en tabla de gestión técnica (historial propio del M9)
+    SELECT id_umbral_ambiental INTO v_id_umbral_defecto FROM modulo9.umbrales_ambientales WHERE id_especie = v_id_especie LIMIT 1;
     
     INSERT INTO modulo9.gestion_especies (
         id_usuario, id_especie, fecha_gestion, id_umbral_ambiental
@@ -72,13 +88,16 @@ CREATE OR REPLACE PROCEDURE modulo9.sp_editar_especie(
     p_id_usuario INT,
     p_id_especie INT,
     p_nuevo_nombre VARCHAR,
-    p_nueva_descripcion VARCHAR
+    p_nueva_descripcion VARCHAR,
+    p_fecha_verificacion TIMESTAMP -- Para concurrencia optimista (RF-15)
 )
 LANGUAGE plpgsql
 AS $$
 DECLARE
     v_tiene_permiso BOOLEAN;
-    v_id_umbral_actual INT;
+    v_nombre_actual VARCHAR;
+    v_desc_actual VARCHAR;
+    v_fecha_actual TIMESTAMP;
 BEGIN
     -- 1. Validar rol Administrador o Ingeniero de Campo (RF-15)
     SELECT EXISTS (
@@ -92,9 +111,24 @@ BEGIN
         RAISE EXCEPTION 'Acceso denegado: Solo el Administrador o el Ingeniero de Campo pueden editar especies.';
     END IF;
 
-    -- Validar existencia
-    IF NOT EXISTS (SELECT 1 FROM modulo9.especies WHERE id_especie = p_id_especie) THEN
+    -- 2. Validar existencia y control de concurrencia
+    SELECT nombre, descripcion, fecha_actualizacion 
+    INTO v_nombre_actual, v_desc_actual, v_fecha_actual
+    FROM modulo9.especies 
+    WHERE id_especie = p_id_especie;
+
+    IF v_nombre_actual IS NULL THEN
         RAISE EXCEPTION 'La especie a editar no existe.';
+    END IF;
+
+    -- Control de concurrencia optimista (RF-15)
+    IF COALESCE(v_fecha_actual, '1900-01-01'::TIMESTAMP) != COALESCE(p_fecha_verificacion, '1900-01-01'::TIMESTAMP) THEN
+        RAISE EXCEPTION 'Conflicto de concurrencia: El registro ha sido modificado por otro usuario. Por favor, recargue los datos.';
+    END IF;
+
+    -- 3. Detectar si hay cambios reales
+    IF TRIM(v_nombre_actual) = TRIM(p_nuevo_nombre) AND TRIM(COALESCE(v_desc_actual, '')) = TRIM(COALESCE(p_nueva_descripcion, '')) THEN
+        RETURN; -- No hay cambios, salimos
     END IF;
 
     -- Validar longitud del nombre si se envió
@@ -111,21 +145,27 @@ BEGIN
         END IF;
     END IF;
 
-    -- Actualizar especie
+    -- 4. Actualizar especie
     UPDATE modulo9.especies
     SET nombre = COALESCE(p_nuevo_nombre, nombre),
         descripcion = COALESCE(p_nueva_descripcion, descripcion),
         fecha_actualizacion = CURRENT_TIMESTAMP
     WHERE id_especie = p_id_especie;
 
-    -- 2. Registro en auditoría gestion_especies
-    SELECT id_umbral_ambiental INTO v_id_umbral_actual 
-    FROM modulo9.umbrales_ambientales WHERE id_especie = p_id_especie LIMIT 1;
-
-    INSERT INTO modulo9.gestion_especies (
-        id_usuario, id_especie, fecha_gestion, id_umbral_ambiental
-    ) VALUES (
-        p_id_usuario, p_id_especie, CURRENT_TIMESTAMP, COALESCE(v_id_umbral_actual, 1)
+    -- 5. Registro en auditoría central con OLD/NEW (RF-10)
+    CALL modulo1.sp_registrar_auditoria(
+        p_id_usuario,
+        NULL,
+        2, -- Tipo evento: ACTUALIZACION
+        'Modulo 9',
+        'CATALOGOS',
+        'Actualización de datos de la especie: ' || v_nombre_actual,
+        'EXITOSO',
+        'ACTIVO',
+        jsonb_build_object(
+            'old_data', jsonb_build_object('nombre', v_nombre_actual, 'descripcion', v_desc_actual),
+            'new_data', jsonb_build_object('nombre', p_nuevo_nombre, 'descripcion', p_nueva_descripcion)
+        )
     );
 
     COMMIT;
