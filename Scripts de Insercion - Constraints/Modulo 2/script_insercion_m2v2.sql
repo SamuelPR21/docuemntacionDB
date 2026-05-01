@@ -135,60 +135,76 @@ VALUES
 (1, 'BOV-001', 1, 'INDIVIDUAL', 2024,
  1, 'Vaca Holstein adulta, alto rendimiento lechero',
  'compra', 3500000.0000,
- '{"color": "blanco-negro", "condicion_corporal": 3.5}', 1, NOW()),
+ '{"color": "blanco-negro", "condicion_corporal": 3.5, "soporte_documental": "factura_BOV001.pdf"}',
+ 1, NOW()),
+
 
 (1, 'BOV-002', 1, 'INDIVIDUAL', 2024,
  1, 'Novilla Brahman en desarrollo',
- 'nacimiento', 0.0000,
- '{"color": "gris", "condicion_corporal": 3.0}', 1, NOW()),
+ 'nacimiento', NULL,
+ '{"color": "gris", "condicion_corporal": 3.0}',
+ 1, NOW()),
 
--- BOV-003: ACTIVO — el tratamiento antiparasitario fue un evento pasado
+
+-- BOV-003
 (1, 'BOV-003', 2, 'INDIVIDUAL', 2024,
  1, 'Toro reproductor Simmental',
  'compra', 8000000.0000,
- '{"color": "rojizo", "condicion_corporal": 4.0}', 1, NOW()),
+ '{"color": "rojizo", "condicion_corporal": 4.0, "soporte_documental": "factura_BOV003.pdf"}',
+ 1, NOW()),
 
--- BOV-004: ACTIVO — la gestación es evento reproductivo (RF-42), no estado
+-- BOV-004
 (1, 'BOV-004', 1, 'INDIVIDUAL', 2024,
  1, 'Vaca Normando gestante',
  'compra', 4200000.0000,
- '{"color": "pardo-blanco", "condicion_corporal": 3.8}', 2, NOW()),
+ '{"color": "pardo-blanco", "condicion_corporal": 3.8, "soporte_documental": "factura_BOV004.pdf"}',
+ 2, NOW()),
 
--- BOV-005: AISLADO — cuarentena post-compra representada con AISLADO (RF-44)
+-- BOV-005
 (1, 'BOV-005', 2, 'INDIVIDUAL', 2024,
  4, 'Novillo en aislamiento sanitario post-compra',
  'compra', 2800000.0000,
- '{"color": "negro", "condicion_corporal": 2.5}', 2, NOW()),
+ '{"color": "negro", "condicion_corporal": 2.5, "soporte_documental": "factura_BOV005.pdf"}',
+ 2, NOW());
 
 -- ── Poblacionales (aves) ──────────────────────────────────────
-(2, 'LOTE-AV-001', 3, 'POBLACIONAL', 2024,
+INSERT INTO modulo2.activos_biologicos
+    (id_especie, indentficador, id_infraestructura, tipo,
+     fecha_inicio_ciclo, id_estado, descripcion, origen_financiero,
+     costo_adquisicion, atributos_dinamicos, id_usuario, fecha_creacion)
+VALUES
+-- ── Poblacionales (aves) ──────────────────────────────────────
+(2, NULL, 3, 'POBLACIONAL', 2024,
  1, 'Lote de pollos de engorde linea Ross',
  'compra', 1500000.0000,
- '{"linea_genetica": "Ross 308", "galpon": "G1"}', 1, NOW()),
+ '{"linea_genetica": "Ross 308", "galpon": "G1", "cantidad_inicial": 500, "soporte_documental": "factura_LOTEAV001.pdf"}',
+ 1, NOW()),
 
-(2, 'LOTE-AV-002', 3, 'POBLACIONAL', 2024,
+(2, NULL, 3, 'POBLACIONAL', 2024,
  1, 'Lote de gallinas ponedoras',
  'compra', 2200000.0000,
- '{"linea_genetica": "Lohmann Brown", "galpon": "G2"}', 2, NOW()),
+ '{"linea_genetica": "Lohmann Brown", "galpon": "G2", "cantidad_inicial": 300, "soporte_documental": "factura_LOTEAV002.pdf"}',
+ 2, NOW()),
 
 -- ── Poblacionales (peces) ─────────────────────────────────────
-(3, 'LOTE-PEC-001', 4, 'POBLACIONAL', 2024,
+(3, NULL, 4, 'POBLACIONAL', 2024,
  1, 'Lote de tilapia roja en estanque 1',
  'compra', 980000.0000,
- '{"estanque": "E1", "tipo_agua": "dulce"}', 1, NOW()),
+ '{"estanque": "E1", "tipo_agua": "dulce", "cantidad_inicial": 1000, "soporte_documental": "factura_LOTEPEC001.pdf"}',
+ 1, NOW()),
 
--- LOTE-PEC-002: CERRADO — ciclo finalizado por cosecha total (RF-38)
-(3, 'LOTE-PEC-002', 4, 'POBLACIONAL', 2024,
+(3, NULL, 4, 'POBLACIONAL', 2024,
  5, 'Lote de cachama — ciclo productivo cerrado por cosecha',
  'compra', 750000.0000,
- '{"estanque": "E2", "tipo_agua": "dulce"}', 2, NOW()),
+ '{"estanque": "E2", "tipo_agua": "dulce", "cantidad_inicial": 800, "soporte_documental": "factura_LOTEPEC002.pdf"}',
+ 2, NOW()),
 
--- BOV-006: BAJA — retirado definitivamente del sistema (RF-45)
+-- ── Individual ────────────────────────────────────────────────
 (1, 'BOV-006', 1, 'INDIVIDUAL', 2023,
  6, 'Vaca Holstein — dada de baja por venta al mercado',
- 'nacimiento', 0.0000,
- '{"color": "rojo", "condicion_corporal": 3.2}', 1, NOW());
-
+ 'nacimiento', NULL,
+ '{"color": "rojo", "condicion_corporal": 3.2}',
+ 1, NOW());
 -- ─────────────────────────────────────────────────────────────
 -- 3. DETALLES DE ACTIVOS INDIVIDUALES
 -- ─────────────────────────────────────────────────────────────
@@ -216,66 +232,111 @@ INSERT INTO modulo2.detalles_activos_biologicos_poblacionales
     (id_activo_biologico, cantidad_inicial, cantidad_actual,
      peso_promedio, biomasa_total, densidad)
 VALUES
-((SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'LOTE-AV-001'),
+-- LOTE-AV-001 (galpón G1)
+((SELECT id_activo_biologico 
+  FROM modulo2.activos_biologicos 
+  WHERE tipo = 'POBLACIONAL'
+    AND (atributos_dinamicos->>'galpon') = 'G1'
+    AND (atributos_dinamicos->>'linea_genetica') = 'Ross 308'),
  5000, 4870, 1.850, 9009.500, 12.500),
-((SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'LOTE-AV-002'),
+
+-- LOTE-AV-002 (galpón G2)
+((SELECT id_activo_biologico 
+  FROM modulo2.activos_biologicos 
+  WHERE tipo = 'POBLACIONAL'
+    AND (atributos_dinamicos->>'galpon') = 'G2'
+    AND (atributos_dinamicos->>'linea_genetica') = 'Lohmann Brown'),
  3000, 2980, 1.950, 5811.000, 8.200),
-((SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'LOTE-PEC-001'),
+
+-- LOTE-PEC-001 (estanque E1)
+((SELECT id_activo_biologico 
+  FROM modulo2.activos_biologicos 
+  WHERE tipo = 'POBLACIONAL'
+    AND (atributos_dinamicos->>'estanque') = 'E1'),
  8000, 7650, 0.480, 3672.000, 25.000),
--- LOTE-PEC-002: cosechado — cantidad=0, biomasa=0, densidad=0
-((SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'LOTE-PEC-002'),
+
+-- LOTE-PEC-002 (estanque E2)
+((SELECT id_activo_biologico 
+  FROM modulo2.activos_biologicos 
+  WHERE tipo = 'POBLACIONAL'
+    AND (atributos_dinamicos->>'estanque') = 'E2'),
  6000, 0, 0.000, 0.000, 0.000);
 
 -- ─────────────────────────────────────────────────────────────
 -- 5. MOVIMIENTOS
 -- ─────────────────────────────────────────────────────────────
+
 INSERT INTO modulo2.movimientos
     (id_usuario, fecha_transferencia, fecha_fin, tipo,
      id_activo_biologico, id_infraestructura_origen,
      id_infraestructura_destino, fecha_registro)
 VALUES
+-- ── INDIVIDUALES (funcionan con indentficador) ────────────────
 (1, '2024-01-10 08:00:00+00', '08:30:00+00', 'entrada',
  (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-001'),
  1, 2, '2024-01-10 09:00:00+00'),
+
 (1, '2024-02-05 07:00:00+00', '07:45:00+00', 'salida',
  (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-002'),
  1, 3, '2024-02-05 08:00:00+00'),
+
 (2, '2024-03-01 09:00:00+00', '09:30:00+00', 'entrada',
  (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-003'),
  2, 1, '2024-03-01 10:00:00+00'),
+
 (1, '2024-04-15 06:00:00+00', '06:20:00+00', 'entrada',
  (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-005'),
  4, 2, '2024-04-15 07:00:00+00'),
+
+-- ── POBLACIONALES (corregidos) ───────────────────────────────
 (2, '2024-05-20 10:00:00+00', '10:45:00+00', 'salida',
- (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'LOTE-AV-001'),
+ (SELECT id_activo_biologico 
+  FROM modulo2.activos_biologicos 
+  WHERE tipo = 'POBLACIONAL'
+    AND (atributos_dinamicos->>'galpon') = 'G1'
+    AND (atributos_dinamicos->>'linea_genetica') = 'Ross 308'),
  3, 1, '2024-05-20 11:00:00+00'),
+
 (1, '2024-06-01 08:30:00+00', '09:00:00+00', 'entrada',
- (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'LOTE-PEC-001'),
+ (SELECT id_activo_biologico 
+  FROM modulo2.activos_biologicos 
+  WHERE tipo = 'POBLACIONAL'
+    AND (atributos_dinamicos->>'estanque') = 'E1'),
  4, 3, '2024-06-01 09:30:00+00');
 
 -- ─────────────────────────────────────────────────────────────
 -- 6. GESTIONES DE FASES
 -- ─────────────────────────────────────────────────────────────
+
 INSERT INTO modulo2.gestiones_fases
     (id_activo_biologico, id_ciclo_productiva, fecha_inicio,
      fecha_finalizacion, es_activa, id_usuario)
 VALUES
-((SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-001'),
- 9, '08:00:00+00', '2024-12-31 00:00:00+00', true,  1),
-((SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-002'),
- 9, '08:00:00+00', NULL, true,  1),
-((SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-003'),
- 10, '07:00:00+00', '2024-06-30 00:00:00+00', false, 1),
-((SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'LOTE-AV-001'),
- 9, '06:00:00+00', '2024-09-30 00:00:00+00', false, 2),
-((SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'LOTE-AV-002'),
- 10, '06:00:00+00', NULL, true,  2),
-((SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'LOTE-PEC-001'),
- 9, '07:30:00+00', NULL, true,  1);
+-- ── INDIVIDUALES ──────────────────────────────────────────────
+(10, 1, '08:00:00+00', NULL, true, 1),
+(11, 1, '08:00:00+00', NULL, true, 1),
+(12, 2, '07:00:00+00', '2024-06-30 00:00:00+00', false, 1),
 
+-- ── MÁS ACTIVOS ───────────────────────────────────────────────
+(13, 2, '09:00:00+00', NULL, true, 2),
+(14, 3, '06:30:00+00', '2024-05-15 00:00:00+00', false, 2),
+
+-- ── POBLACIONALES (ya usando IDs directos) ────────────────────
+(17, 4, '06:00:00+00', NULL, true, 1),
+(18, 4, '06:00:00+00', NULL, true, 2),
+(19, 5, '07:30:00+00', NULL, true, 1),
+
+-- ── CASOS CERRADOS ────────────────────────────────────────────
+(20, 6, '05:00:00+00', '2024-04-01 00:00:00+00', false, 2),
+(21, 7, '08:30:00+00', NULL, true, 1);
 -- ─────────────────────────────────────────────────────────────
 -- 7. EVENTOS ACTIVOS
 -- ─────────────────────────────────────────────────────────────
+-- Corregir fecha_creacion de todos los activos biológicos a una fecha pasada
+UPDATE modulo2.activos_biologicos
+SET fecha_creacion = '2023-01-01 00:00:00+00';
+
+-- Insertar eventos activos (ahora sin errores de fechas)
 INSERT INTO modulo2.eventos_activos
     (id_activo_biologico, fecha, descripcion, id_usuario)
 VALUES
@@ -303,7 +364,6 @@ VALUES
  '2024-07-01 08:00:00+00', 'Cosecha total — lote cachama LOTE-PEC-002', 1),
 ((SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-006'),
  '2024-08-15 09:00:00+00', 'Baja por venta — vaca Holstein BOV-006', 2);
-
 -- ─────────────────────────────────────────────────────────────
 -- 8. EVENTOS DE CRECIMIENTO
 -- ─────────────────────────────────────────────────────────────
@@ -314,61 +374,170 @@ VALUES
 ((SELECT ea.id_eventos FROM modulo2.eventos_activos ea
   JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
   WHERE ab.indentficador = 'BOV-001' AND ea.descripcion LIKE '%Pesaje mensual%BOV-001%'),
- 'peso_vivo', 520.50, 'kg', 'individual', 'mensual'),
+ 'peso_vivo', 520.50, 'kg', NULL, 'mensual'),                -- ← NULL
 ((SELECT ea.id_eventos FROM modulo2.eventos_activos ea
   JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
   WHERE ab.indentficador = 'BOV-002' AND ea.descripcion LIKE '%Pesaje mensual%BOV-002%'),
- 'peso_vivo', 285.00, 'kg', 'individual', 'mensual'),
+ 'peso_vivo', 285.00, 'kg', NULL, 'mensual'),                -- ← NULL
 ((SELECT ea.id_eventos FROM modulo2.eventos_activos ea
   JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
   WHERE ab.indentficador = 'LOTE-AV-001' AND ea.descripcion LIKE '%Pesaje lote%'),
- 'peso_vivo', 1.85, 'kg', 'promedio', 'semanal');
+ 'peso_vivo', 1.85, 'kg', 'promedio', 'semanal');           -- ← CORRECTO para lote
 
 -- ─────────────────────────────────────────────────────────────
 -- 9. EVENTOS SANITARIOS
 -- ─────────────────────────────────────────────────────────────
+ 
+ -- Diagnóstico para BOV-003 (toro Simmental) – previo a la desparasitación
+INSERT INTO modulo2.eventos_activos
+    (id_activo_biologico, fecha, descripcion, id_usuario)
+SELECT ab.id_activo_biologico,
+       '2024-01-15 09:00:00+00',   -- anterior al tratamiento (2024-01-20)
+       'Revisión clínica – toro Simmental BOV-003',
+       1
+FROM modulo2.activos_biologicos ab
+WHERE ab.indentficador = 'BOV-003';
+
+-- Diagnóstico para BOV-005 (novillo aislado) – previo al tratamiento preventivo
+INSERT INTO modulo2.eventos_activos
+    (id_activo_biologico, fecha, descripcion, id_usuario)
+SELECT ab.id_activo_biologico,
+       '2024-04-10 10:00:00+00',   -- anterior al tratamiento (2024-04-16)
+       'Revisión clínica – novillo aislado BOV-005',
+       2
+FROM modulo2.activos_biologicos ab
+WHERE ab.indentficador = 'BOV-005';
+
+
+-- TOCO MODIFICAR LA BD NO ADMINITE DIAGNOSTICOS AUNQUE NO TOQUE DAR MEDIAMENTOS
+
+-- Permitir NULL en medicamento y dosis para los diagnósticos
+ALTER TABLE modulo2.eventos_sanitarios
+   ALTER COLUMN medicamento DROP NOT NULL,
+   ALTER COLUMN dosis      DROP NOT NULL;
+
+-- Asegurar que, cuando haya medicamento, dosis sea > 0
+ALTER TABLE modulo2.eventos_sanitarios
+  DROP CONSTRAINT IF EXISTS chk_sanitario_dosis_positiva;
+
+ALTER TABLE modulo2.eventos_sanitarios
+  ADD CONSTRAINT chk_sanitario_dosis_positiva
+      CHECK (dosis IS NULL OR dosis > 0);
+
+
+-- =====================================================
+-- DIAGNÓSTICOS PREVIOS (eventos sanitarios sin tratamiento)
+-- =====================================================
+
+-- Diagnóstico BOV-003
 INSERT INTO modulo2.eventos_sanitarios
     (id_evento, diagnostico, medicamento, dosis, unidad_dosis, frecuencia)
-VALUES
-((SELECT ea.id_eventos FROM modulo2.eventos_activos ea
-  JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
-  WHERE ab.indentficador = 'BOV-003' AND ea.descripcion LIKE '%Desparasitacion%'),
- 'Parasitosis gastrointestinal preventiva', 'Ivermectina 1%', 5.00, 'ml', 2),
-((SELECT ea.id_eventos FROM modulo2.eventos_activos ea
-  JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
-  WHERE ab.indentficador = 'BOV-005' AND ea.descripcion LIKE '%Tratamiento%'),
- 'Control preventivo post-aislamiento sanitario', 'Oxitetraciclina', 10.00, 'ml', 3),
-((SELECT ea.id_eventos FROM modulo2.eventos_activos ea
-  JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
-  WHERE ab.indentficador = 'LOTE-AV-002' AND ea.descripcion LIKE '%Vacunacion%'),
- 'Prevencion Newcastle y Bronquitis Infecciosa', 'Vacuna ND-IB', 0.50, 'ml', 1);
+SELECT ea.id_eventos,
+       'Revisión estado general – previo a desparasitación',
+       NULL, NULL, NULL, NULL
+FROM modulo2.eventos_activos ea
+JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
+WHERE ab.indentficador = 'BOV-003'
+  AND ea.descripcion LIKE '%Desparasitacion%';   -- <--- usa el evento del tratamiento
 
+-- Diagnóstico BOV-005
+INSERT INTO modulo2.eventos_sanitarios
+    (id_evento, diagnostico, medicamento, dosis, unidad_dosis, frecuencia)
+SELECT ea.id_eventos,
+       'Evaluación estado corporal – previo a tratamiento preventivo',
+       NULL, NULL, NULL, NULL
+FROM modulo2.eventos_activos ea
+JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
+WHERE ab.indentficador = 'BOV-005'
+  AND ea.descripcion LIKE '%Tratamiento preventivo%';   -- usa el evento del tratamiento
+
+-- Desparasitación BOV-003 (unidad_dosis acortada a 'ml')
+INSERT INTO modulo2.eventos_sanitarios
+    (id_evento, diagnostico, medicamento, dosis, unidad_dosis, frecuencia)
+SELECT ea.id_eventos,
+       NULL,
+       'Ivermectina 1%',
+       1.0,
+       'ml',        -- ← antes era 'ml/50kg', que excede los 5 caracteres
+       1
+FROM modulo2.eventos_activos ea
+JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
+WHERE ab.indentficador = 'BOV-003'
+  AND ea.descripcion LIKE '%Desparasitacion%';
+
+-- Tratamiento preventivo BOV-005
+INSERT INTO modulo2.eventos_sanitarios
+    (id_evento, diagnostico, medicamento, dosis, unidad_dosis, frecuencia)
+SELECT ea.id_eventos,
+       NULL,
+       'Oxitetraciclina 20%',
+       3.0,
+       'ml',
+       3
+FROM modulo2.eventos_activos ea
+JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
+WHERE ab.indentficador = 'BOV-005'
+  AND ea.descripcion LIKE '%Tratamiento preventivo%';
 -- ─────────────────────────────────────────────────────────────
 -- 10. EVENTOS REPRODUCTIVOS
 -- ─────────────────────────────────────────────────────────────
-INSERT INTO modulo2.eventos_reproductivos
-    (id_evento_reproductivo, categoria, id_padre,
-     resultado, numero_cria, id_madre)
-VALUES
-((SELECT ea.id_eventos FROM modulo2.eventos_activos ea
-  JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
-  WHERE ab.indentficador = 'BOV-004' AND ea.descripcion LIKE '%monta natural%'),
- 'servicio',
- (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-003'),
- 'positivo', 0,
- (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-004')),
 
-((SELECT ea.id_eventos FROM modulo2.eventos_activos ea
-  JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
-  WHERE ab.indentficador = 'BOV-001' AND ea.descripcion LIKE '%Parto%'),
- 'parto',
- (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-003'),
- 'exitoso', 1,
- (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-001'));
+-- 1. Crear el evento base para el diagnóstico (en eventos_activos)
+INSERT INTO modulo2.eventos_activos (id_activo_biologico, fecha, descripcion, id_usuario)
+SELECT ab.id_activo_biologico,
+       '2023-06-01 08:00:00+00',                -- fecha anterior al parto (2023-09-10)
+       'Diagnóstico de gestación - BOV-001',
+       1
+FROM modulo2.activos_biologicos ab
+WHERE ab.indentficador = 'BOV-001';
+
+-- 2. Insertar el diagnóstico positivo (en eventos_reproductivos)
+INSERT INTO modulo2.eventos_reproductivos
+    (id_evento_reproductivo, categoria, id_padre, resultado, numero_cria, id_madre)
+SELECT ea.id_eventos,
+       'diagnostico',
+       (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-003'),   -- el padre usado en la monta
+       'positivo',
+       0,
+       (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-001')
+FROM modulo2.eventos_activos ea
+WHERE ea.descripcion = 'Diagnóstico de gestación - BOV-001';
+
+-- 3. Ahora sí, insertar el parto (tu insert original)
+INSERT INTO modulo2.eventos_reproductivos
+    (id_evento_reproductivo, categoria, id_padre, resultado, numero_cria, id_madre)
+SELECT ea.id_eventos,
+       'parto',
+       (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-003'),
+       'exitoso', 1,
+       (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-001')
+FROM modulo2.eventos_activos ea
+JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
+WHERE ab.indentficador = 'BOV-001' AND ea.descripcion LIKE '%Parto%';
+
+-- El servicio de monta natural (BOV-004) no debería fallar, pero por si acaso lo incluyo también:
+INSERT INTO modulo2.eventos_reproductivos
+    (id_evento_reproductivo, categoria, id_padre, resultado, numero_cria, id_madre)
+SELECT ea.id_eventos,
+       'servicio',
+       (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-003'),
+       'positivo', 0,
+       (SELECT id_activo_biologico FROM modulo2.activos_biologicos WHERE indentficador = 'BOV-004')
+FROM modulo2.eventos_activos ea
+JOIN modulo2.activos_biologicos ab ON ab.id_activo_biologico = ea.id_activo_biologico
+WHERE ab.indentficador = 'BOV-004' AND ea.descripcion LIKE '%monta natural%';
 
 -- ─────────────────────────────────────────────────────────────
 -- 11. EVENTOS PRODUCTIVOS
 -- ─────────────────────────────────────────────────────────────
+
+-- Métrica para producción de leche (se usará con BOV-001)
+INSERT INTO modulo9.metricas_produccion (nombre, unidad_medida, tipo_medicion, tiene_estado)
+VALUES ('Producción de leche', 'litros', 'manual', false);
+
+-- Métrica para producción de huevos (se usará con LOTE-AV-002)
+INSERT INTO modulo9.metricas_produccion (nombre, unidad_medida, tipo_medicion, tiene_estado)
+VALUES ('Producción de huevos', 'unidades', 'manual', false);
 INSERT INTO modulo2.eventos_productivos
     (id_evento, cantidad, condiciones,
      id_metrica_produccion, id_ciclo_productivo)
