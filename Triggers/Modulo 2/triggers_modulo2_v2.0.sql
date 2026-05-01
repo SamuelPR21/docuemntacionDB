@@ -10,7 +10,7 @@
 -- =============================================================================
 
 -- ÍNDICE
--- TRG-M2-01  Coherencia de tipo de activo (INDIVIDUAL vs POBLACIONAL)
+-- TRG-M2-01  Coherencia de tipo de activo (INDIVIDUAL vs poblacional)
 -- TRG-M2-02  Estado inicial forzado a ACTIVO
 -- TRG-M2-03  Validación de origen financiero y costo de adquisición
 -- TRG-M2-04  Inmutabilidad de campos estructurales del activo
@@ -31,14 +31,14 @@
 -- TRG-M2-19  Unicidad de fase activa por activo biológico
 -- TRG-M2-20  Validación de no solapamiento temporal de fases
 -- TRG-M2-21  Bloqueo de cambio de fase en activos no operativos
--- TRG-M2-22  Unicidad de asociación activa sensor-activo (tipo DIRECTA)
+-- TRG-M2-22  Unicidad de asociación activa sensor-activo (tipo directa)
 -- TRG-M2-23  Inmutabilidad del historial de estados
 -- TRG-M2-24  Inmutabilidad de todos los eventos biológicos registrados
 -- TRG-M2-25  Fecha de inicio de ciclo productivo válida
 -- TRG-M2-26  Protección de eliminación física de activos biológicos
 
 -- =============================================================================
--- TRG-M2-01 — Coherencia de tipo de activo (INDIVIDUAL vs POBLACIONAL)
+-- TRG-M2-01 — Coherencia de tipo de activo (INDIVIDUAL vs poblacional)
 -- Tabla:  modulo2.activos_biologicos
 -- Evento: BEFORE INSERT
 -- =============================================================================
@@ -62,9 +62,9 @@ BEGIN
             USING ERRCODE = 'P0202';
         END IF;
 
-    ELSIF NEW.tipo = 'POBLACIONAL' THEN
+    ELSIF NEW.tipo = 'poblacional' THEN
         IF (NEW.atributos_dinamicos->>'cantidad_inicial') IS NULL THEN
-            RAISE EXCEPTION 'MISSING_FIELD: Para activos de tipo POBLACIONAL la cantidad_inicial es obligatoria.'
+            RAISE EXCEPTION 'MISSING_FIELD: Para activos de tipo poblacional la cantidad_inicial es obligatoria.'
             USING ERRCODE = 'P0203';
         END IF;
         IF (NEW.atributos_dinamicos->>'cantidad_inicial')::INTEGER <= 0 THEN
@@ -72,7 +72,7 @@ BEGIN
             USING ERRCODE = 'P0203';
         END IF;
         IF NEW.indentficador IS NOT NULL THEN
-            RAISE EXCEPTION 'INVALID_COMBINATION: Para activos POBLACIONAL el identificador debe ser nulo.'
+            RAISE EXCEPTION 'INVALID_COMBINATION: Para activos poblacional el identificador debe ser nulo.'
             USING ERRCODE = 'P0203';
         END IF;
     END IF;
@@ -122,7 +122,7 @@ FOR EACH ROW EXECUTE FUNCTION modulo2.trg_fn_activo_biologico_estado_inicial();
 CREATE OR REPLACE FUNCTION modulo2.trg_fn_activo_biologico_origen_financiero()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.origen_financiero IN ('COMPRA', 'DONACION') THEN
+    IF NEW.origen_financiero IN ('compra', 'donacion') THEN
         IF NEW.costo_adquisicion IS NULL OR NEW.costo_adquisicion <= 0 THEN
             RAISE EXCEPTION 'FINANCIAL_RULE: El origen financiero % exige un costo_adquisicion mayor a cero. Valor recibido: %.', NEW.origen_financiero, NEW.costo_adquisicion
             USING ERRCODE = 'P0205';
@@ -133,25 +133,25 @@ BEGIN
             USING ERRCODE = 'P0205';
         END IF;
 
-    ELSIF NEW.origen_financiero = 'NACIMIENTO' THEN
+    ELSIF NEW.origen_financiero = 'nacimiento' THEN
         IF NEW.costo_adquisicion IS NOT NULL THEN
-            RAISE EXCEPTION 'FINANCIAL_RULE: Para origen NACIMIENTO el costo_adquisicion debe ser nulo. Valor recibido: %.', NEW.costo_adquisicion
+            RAISE EXCEPTION 'FINANCIAL_RULE: Para origen nacimiento el costo_adquisicion debe ser nulo. Valor recibido: %.', NEW.costo_adquisicion
             USING ERRCODE = 'P0206';
         END IF;
         IF (NEW.atributos_dinamicos->>'soporte_documental') IS NOT NULL THEN
-            RAISE EXCEPTION 'FINANCIAL_RULE: Para origen NACIMIENTO el soporte_documental debe ser nulo.'
+            RAISE EXCEPTION 'FINANCIAL_RULE: Para origen nacimiento el soporte_documental debe ser nulo.'
             USING ERRCODE = 'P0206';
         END IF;
 
-    ELSIF NEW.origen_financiero = 'TRANSFERENCIA_INTERNA' THEN
+    ELSIF NEW.origen_financiero = 'transferencia_interna' THEN
         IF NEW.costo_adquisicion IS NOT NULL AND NEW.costo_adquisicion <= 0 THEN
-            RAISE EXCEPTION 'FINANCIAL_RULE: Si se registra costo_adquisicion en TRANSFERENCIA_INTERNA debe ser mayor a cero. Valor recibido: %.', NEW.costo_adquisicion
+            RAISE EXCEPTION 'FINANCIAL_RULE: Si se registra costo_adquisicion en transferencia_interna debe ser mayor a cero. Valor recibido: %.', NEW.costo_adquisicion
             USING ERRCODE = 'P0207';
         END IF;
         IF NEW.costo_adquisicion IS NOT NULL
            AND ((NEW.atributos_dinamicos->>'soporte_documental') IS NULL
                 OR TRIM(NEW.atributos_dinamicos->>'soporte_documental') = '') THEN
-            RAISE EXCEPTION 'FINANCIAL_RULE: Si se registra costo_adquisicion en TRANSFERENCIA_INTERNA el soporte_documental es obligatorio.'
+            RAISE EXCEPTION 'FINANCIAL_RULE: Si se registra costo_adquisicion en transferencia_interna el soporte_documental es obligatorio.'
             USING ERRCODE = 'P0207';
         END IF;
     END IF;
@@ -465,9 +465,9 @@ BEGIN
             RAISE EXCEPTION 'INVALID_FIELD: Para activos INDIVIDUALES el campo tipo_agregacion debe ser nulo o vacío.'
             USING ERRCODE = 'P0216';
         END IF;
-    ELSIF v_tipo_activo = 'POBLACIONAL' THEN
+    ELSIF v_tipo_activo = 'poblacional' THEN
         IF NEW.tipo_agregacion IS NULL OR TRIM(NEW.tipo_agregacion) = '' THEN
-            RAISE EXCEPTION 'MISSING_FIELD: Para activos LOTE (POBLACIONAL) el campo tipo_agregacion es obligatorio.'
+            RAISE EXCEPTION 'MISSING_FIELD: Para activos LOTE (poblacional) el campo tipo_agregacion es obligatorio.'
             USING ERRCODE = 'P0216';
         END IF;
     END IF;
@@ -517,8 +517,8 @@ BEGIN
     JOIN modulo2.eventos_activos ev ON ev.id_activo_biologico = a.id_activo_biologico
     WHERE ev.id_eventos = NEW.id_evento;
 
-    -- Solo aplica para lotes POBLACIONALES
-    IF v_tipo_activo <> 'POBLACIONAL' THEN
+    -- Solo aplica para lotes poblacionalES
+    IF v_tipo_activo <> 'poblacional' THEN
         RETURN NEW;
     END IF;
 
@@ -560,30 +560,30 @@ CREATE OR REPLACE FUNCTION modulo2.trg_fn_evento_sanitario_secuencia()
 RETURNS TRIGGER AS $$
 DECLARE
     v_activo_id         INTEGER;
-    v_tiene_diagnostico INTEGER;
+    v_tiene_diagnosticoo INTEGER;
 BEGIN
     SELECT id_activo_biologico INTO v_activo_id
     FROM modulo2.eventos_activos
     WHERE id_eventos = NEW.id_evento;
 
     -- Si el evento tiene medicamento y dosis es TRATAMIENTO o VACUNACION:
-    -- requiere DIAGNOSTICO previo (evento sanitario sin medicamento con diagnóstico)
+    -- requiere diagnosticoO previo (evento sanitario sin medicamento con diagnóstico)
     IF NEW.medicamento IS NOT NULL AND TRIM(NEW.medicamento) <> ''
        AND NEW.dosis IS NOT NULL AND NEW.dosis > 0 THEN
 
-        SELECT COUNT(*) INTO v_tiene_diagnostico
+        SELECT COUNT(*) INTO v_tiene_diagnosticoo
         FROM modulo2.eventos_sanitarios es_prev
         JOIN modulo2.eventos_activos ea_prev ON ea_prev.id_eventos = es_prev.id_evento
         WHERE ea_prev.id_activo_biologico = v_activo_id
-          AND es_prev.diagnostico IS NOT NULL
-          AND TRIM(es_prev.diagnostico) <> ''
+          AND es_prev.diagnosticoo IS NOT NULL
+          AND TRIM(es_prev.diagnosticoo) <> ''
           AND es_prev.medicamento IS NULL
           AND ea_prev.fecha < (
               SELECT fecha FROM modulo2.eventos_activos WHERE id_eventos = NEW.id_evento
           );
 
-        IF v_tiene_diagnostico = 0 THEN
-            RAISE EXCEPTION 'SEQUENCE_VIOLATION: No se puede registrar TRATAMIENTO o VACUNACION sin un evento de DIAGNOSTICO previo para el activo ID %.', v_activo_id
+        IF v_tiene_diagnosticoo = 0 THEN
+            RAISE EXCEPTION 'SEQUENCE_VIOLATION: No se puede registrar TRATAMIENTO o VACUNACION sin un evento de diagnosticoO previo para el activo ID %.', v_activo_id
             USING ERRCODE = 'P0219';
         END IF;
     END IF;
@@ -614,44 +614,44 @@ BEGIN
     JOIN modulo2.eventos_activos ev ON ev.id_activo_biologico = a.id_activo_biologico
     WHERE ev.id_eventos = NEW.id_evento_reproductivo;
 
-    -- Para LOTE: solo se permite NACIMIENTO
-    IF v_tipo_activo = 'POBLACIONAL' AND NEW.categoria NOT IN ('NACIMIENTO') THEN
-        RAISE EXCEPTION 'TYPE_RESTRICTION: Para activos de tipo LOTE (POBLACIONAL) solo se permite el evento reproductivo NACIMIENTO. Categoría recibida: %.', NEW.categoria
+    -- Para LOTE: solo se permite nacimiento
+    IF v_tipo_activo = 'POBLACIONAL' AND NEW.categoria NOT IN ('nacimiento') THEN
+        RAISE EXCEPTION 'TYPE_RESTRICTION: Para activos de tipo LOTE (poblacional) solo se permite el evento reproductivo nacimiento. Categoría recibida: %.', NEW.categoria
         USING ERRCODE = 'P0220';
     END IF;
 
     IF v_tipo_activo = 'INDIVIDUAL' THEN
-        -- PARTO requiere DIAGNOSTICO_GESTACION positivo previo
-        IF NEW.categoria = 'PARTO' THEN
+        -- parto requiere diagnostico positivo previo
+        IF NEW.categoria = 'parto' THEN
             SELECT COUNT(*) INTO v_count_previo
             FROM modulo2.eventos_reproductivos er
             JOIN modulo2.eventos_activos ea ON ea.id_eventos = er.id_evento_reproductivo
             WHERE ea.id_activo_biologico = v_activo_id
-              AND er.categoria = 'DIAGNOSTICO_GESTACION'
+              AND er.categoria = 'diagnostico'
               AND UPPER(er.resultado) LIKE '%POSITIV%';
 
             IF v_count_previo = 0 THEN
-                RAISE EXCEPTION 'SEQUENCE_VIOLATION: No se puede registrar PARTO sin un evento previo de DIAGNOSTICO_GESTACION positivo para el activo ID %.', v_activo_id
+                RAISE EXCEPTION 'SEQUENCE_VIOLATION: No se puede registrar parto sin un evento previo de diagnostico positivo para el activo ID %.', v_activo_id
                 USING ERRCODE = 'P0221';
             END IF;
         END IF;
 
-        -- NACIMIENTO requiere PARTO previo
-        IF NEW.categoria = 'NACIMIENTO' THEN
+        -- nacimiento requiere parto previo
+        IF NEW.categoria = 'nacimiento' THEN
             SELECT COUNT(*) INTO v_count_previo
             FROM modulo2.eventos_reproductivos er
             JOIN modulo2.eventos_activos ea ON ea.id_eventos = er.id_evento_reproductivo
             WHERE ea.id_activo_biologico = v_activo_id
-              AND er.categoria = 'PARTO';
+              AND er.categoria = 'parto';
 
             IF v_count_previo = 0 THEN
-                RAISE EXCEPTION 'SEQUENCE_VIOLATION: No se puede registrar NACIMIENTO sin un evento previo de PARTO para el activo ID %.', v_activo_id
+                RAISE EXCEPTION 'SEQUENCE_VIOLATION: No se puede registrar nacimiento sin un evento previo de parto para el activo ID %.', v_activo_id
                 USING ERRCODE = 'P0221';
             END IF;
         END IF;
 
         -- Número de crías en parto o nacimiento debe ser >= 1
-        IF NEW.categoria IN ('PARTO', 'NACIMIENTO') AND NEW.numero_cria < 1 THEN
+        IF NEW.categoria IN ('parto', 'nacimiento') AND NEW.numero_cria < 1 THEN
             RAISE EXCEPTION 'INVALID_VALUE: El número de crías en un evento de % debe ser mayor o igual a 1. Valor recibido: %.', NEW.categoria, NEW.numero_cria
             USING ERRCODE = 'P0222';
         END IF;
@@ -720,7 +720,7 @@ BEGIN
     JOIN modulo2.eventos_activos ea ON ea.id_activo_biologico = a.id_activo_biologico
     WHERE ea.id_eventos = NEW.id_evento;
 
-    IF v_tipo_activo = 'POBLACIONAL' THEN
+    IF v_tipo_activo = 'poblacional' THEN
         IF NEW.cantidad_afectada IS NULL OR NEW.cantidad_afectada <= 0 THEN
             RAISE EXCEPTION 'INVALID_VALUE: Para bajas en lotes la cantidad_afectada debe ser mayor a cero. Valor recibido: %.', NEW.cantidad_afectada
             USING ERRCODE = 'P0224';
@@ -763,7 +763,7 @@ BEGIN
     JOIN modulo2.eventos_activos ea ON ea.id_activo_biologico = a.id_activo_biologico
     WHERE ea.id_eventos = NEW.id_evento;
 
-    IF v_tipo_activo <> 'POBLACIONAL' THEN
+    IF v_tipo_activo <> 'poblacional' THEN
         RETURN NEW;
     END IF;
 
@@ -831,25 +831,30 @@ CREATE OR REPLACE FUNCTION modulo2.trg_fn_fase_solapamiento()
 RETURNS TRIGGER AS $$
 DECLARE
     v_ultima_fecha_fin TIMESTAMPTZ;
+    v_inicio_ts TIMESTAMPTZ;
 BEGIN
     SELECT fecha_finalizacion INTO v_ultima_fecha_fin
     FROM modulo2.gestiones_fases
     WHERE id_activo_biologico = NEW.id_activo_biologico
-      AND es_activa           = FALSE
+      AND es_activa = FALSE
       AND fecha_finalizacion IS NOT NULL
     ORDER BY fecha_finalizacion DESC
     LIMIT 1;
 
+    -- convertir TIME a TIMESTAMPTZ correctamente
+    v_inicio_ts := (CURRENT_DATE + NEW.fecha_inicio)::timestamptz;
+
     IF v_ultima_fecha_fin IS NOT NULL
-       AND NEW.fecha_inicio::TIMESTAMPTZ < v_ultima_fecha_fin THEN
-        RAISE EXCEPTION 'PHASE_OVERLAP: La fecha de inicio de la nueva fase (%) es anterior a la fecha de finalización de la fase anterior (%). No se permiten solapamientos.', NEW.fecha_inicio, v_ultima_fecha_fin
+       AND v_inicio_ts < v_ultima_fecha_fin THEN
+        RAISE EXCEPTION 
+        'PHASE_OVERLAP: La fecha de inicio (%) es anterior a la finalización (%).',
+        v_inicio_ts, v_ultima_fecha_fin
         USING ERRCODE = 'P0227';
     END IF;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 CREATE TRIGGER trg_fase_solapamiento
 BEFORE INSERT ON modulo2.gestiones_fases
 FOR EACH ROW EXECUTE FUNCTION modulo2.trg_fn_fase_solapamiento();
@@ -895,7 +900,7 @@ BEFORE INSERT ON modulo2.gestiones_fases
 FOR EACH ROW EXECUTE FUNCTION modulo2.trg_fn_fase_activo_estado_valido();
 
 -- =============================================================================
--- TRG-M2-22 — Unicidad de asociación activa sensor-activo (tipo DIRECTA)
+-- TRG-M2-22 — Unicidad de asociación activa sensor-activo (tipo directa)
 -- Tabla:  modulo2.asociaciones_activos_sensores
 -- Evento: BEFORE INSERT
 -- =============================================================================
@@ -904,15 +909,15 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_count INTEGER;
 BEGIN
-    IF NEW.tipo = 'DIRECTA' THEN
+    IF NEW.tipo = 'directa' THEN
         SELECT COUNT(*) INTO v_count
         FROM modulo2.asociaciones_activos_sensores
         WHERE id_sensor  = NEW.id_sensor
           AND fecha_fin  > now()
-          AND tipo       = 'DIRECTA';
+          AND tipo       = 'directa';
 
         IF v_count > 0 THEN
-            RAISE EXCEPTION 'SENSOR_CONFLICT: El sensor ID % ya tiene una asociación DIRECTA activa con otro activo individual. Desactive la asociación existente antes de crear una nueva.', NEW.id_sensor
+            RAISE EXCEPTION 'SENSOR_CONFLICT: El sensor ID % ya tiene una asociación directa activa con otro activo individual. Desactive la asociación existente antes de crear una nueva.', NEW.id_sensor
             USING ERRCODE = 'P0229';
         END IF;
     END IF;
@@ -1070,3 +1075,124 @@ FOR EACH ROW EXECUTE FUNCTION modulo2.trg_fn_activo_biologico_no_delete();
 --   TRG-M2-23 crea 2 triggers con 1 función (update + delete)
 --   TRG-M2-24 crea 12 triggers con 1 función (update + delete × 6 tablas)
 -- =============================================================================
+
+
+-- =============================================================================
+-- DROP de triggers y funciones — MÓDULO 2
+-- =============================================================================
+
+-- TRG-M2-01
+DROP TRIGGER IF EXISTS trg_activo_biologico_coherencia_tipo ON modulo2.activos_biologicos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_activo_biologico_coherencia_tipo();
+
+-- TRG-M2-02
+DROP TRIGGER IF EXISTS trg_activo_biologico_estado_inicial ON modulo2.activos_biologicos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_activo_biologico_estado_inicial();
+
+-- TRG-M2-03
+DROP TRIGGER IF EXISTS trg_activo_biologico_origen_financiero ON modulo2.activos_biologicos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_activo_biologico_origen_financiero();
+
+-- TRG-M2-04
+DROP TRIGGER IF EXISTS trg_activo_biologico_inmutabilidad ON modulo2.activos_biologicos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_activo_biologico_inmutabilidad();
+
+-- TRG-M2-05
+DROP TRIGGER IF EXISTS trg_poblacional_inicializar_metricas ON modulo2.detalles_activos_biologicos_poblacionales;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_poblacional_inicializar_metricas();
+
+-- TRG-M2-06
+DROP TRIGGER IF EXISTS trg_poblacional_cantidad_inmutable ON modulo2.detalles_activos_biologicos_poblacionales;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_poblacional_cantidad_inmutable();
+
+-- TRG-M2-07
+DROP TRIGGER IF EXISTS trg_estado_activo_transicion_valida ON modulo2.historicos_estados_activos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_estado_activo_transicion_valida();
+
+-- TRG-M2-08
+DROP TRIGGER IF EXISTS trg_estado_activo_unico_vigente ON modulo2.historicos_estados_activos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_estado_activo_unico_vigente();
+
+-- TRG-M2-09
+DROP TRIGGER IF EXISTS trg_estado_activo_no_baja_modify ON modulo2.activos_biologicos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_estado_activo_no_baja_modify();
+
+-- TRG-M2-10
+DROP TRIGGER IF EXISTS trg_evento_activo_estado_valido ON modulo2.eventos_activos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_evento_activo_estado_valido();
+
+-- TRG-M2-11
+DROP TRIGGER IF EXISTS trg_evento_fecha_coherente ON modulo2.eventos_activos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_evento_fecha_coherente();
+
+-- TRG-M2-12
+DROP TRIGGER IF EXISTS trg_evento_crecimiento_tipo_activo ON modulo2.eventos_crecimeinto;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_evento_crecimiento_tipo_activo();
+
+-- TRG-M2-13
+DROP TRIGGER IF EXISTS trg_evento_crecimiento_recalcular_metricas ON modulo2.eventos_crecimeinto;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_evento_crecimiento_recalcular_metricas();
+
+-- TRG-M2-14
+DROP TRIGGER IF EXISTS trg_evento_sanitario_secuencia ON modulo2.eventos_sanitarios;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_evento_sanitario_secuencia();
+
+-- TRG-M2-15
+DROP TRIGGER IF EXISTS trg_evento_reproductivo_secuencia ON modulo2.eventos_reproductivos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_evento_reproductivo_secuencia();
+
+-- TRG-M2-16
+DROP TRIGGER IF EXISTS trg_evento_productivo_duplicado ON modulo2.eventos_productivos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_evento_productivo_duplicado();
+
+-- TRG-M2-17
+DROP TRIGGER IF EXISTS trg_baja_cantidad_valida ON modulo2.eventos_bajas;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_baja_cantidad_valida();
+
+-- TRG-M2-18
+DROP TRIGGER IF EXISTS trg_baja_actualizar_cantidad_lote ON modulo2.eventos_bajas;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_baja_actualizar_cantidad_lote();
+
+-- TRG-M2-19
+DROP TRIGGER IF EXISTS trg_fase_unica_activa ON modulo2.gestiones_fases;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_fase_unica_activa();
+
+-- TRG-M2-20
+DROP TRIGGER IF EXISTS trg_fase_solapamiento ON modulo2.gestiones_fases;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_fase_solapamiento();
+
+-- TRG-M2-21
+DROP TRIGGER IF EXISTS trg_fase_activo_estado_valido ON modulo2.gestiones_fases;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_fase_activo_estado_valido();
+
+-- TRG-M2-22
+DROP TRIGGER IF EXISTS trg_asociacion_sensor_activo_unica ON modulo2.asociaciones_activos_sensores;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_asociacion_sensor_activo_unica();
+
+-- TRG-M2-23 (2 triggers, 1 función)
+DROP TRIGGER IF EXISTS trg_historial_estados_inmutable_update ON modulo2.historicos_estados_activos;
+DROP TRIGGER IF EXISTS trg_historial_estados_inmutable_delete ON modulo2.historicos_estados_activos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_historial_estados_inmutable();
+
+-- TRG-M2-24 (12 triggers, 1 función)
+DROP TRIGGER IF EXISTS trg_eventos_activos_inmutable_update         ON modulo2.eventos_activos;
+DROP TRIGGER IF EXISTS trg_eventos_activos_inmutable_delete         ON modulo2.eventos_activos;
+DROP TRIGGER IF EXISTS trg_eventos_crecimiento_inmutable_update     ON modulo2.eventos_crecimeinto;
+DROP TRIGGER IF EXISTS trg_eventos_crecimiento_inmutable_delete     ON modulo2.eventos_crecimeinto;
+DROP TRIGGER IF EXISTS trg_eventos_sanitarios_inmutable_update      ON modulo2.eventos_sanitarios;
+DROP TRIGGER IF EXISTS trg_eventos_sanitarios_inmutable_delete      ON modulo2.eventos_sanitarios;
+DROP TRIGGER IF EXISTS trg_eventos_reproductivos_inmutable_update   ON modulo2.eventos_reproductivos;
+DROP TRIGGER IF EXISTS trg_eventos_reproductivos_inmutable_delete   ON modulo2.eventos_reproductivos;
+DROP TRIGGER IF EXISTS trg_eventos_productivos_inmutable_update     ON modulo2.eventos_productivos;
+DROP TRIGGER IF EXISTS trg_eventos_productivos_inmutable_delete     ON modulo2.eventos_productivos;
+DROP TRIGGER IF EXISTS trg_eventos_bajas_inmutable_update           ON modulo2.eventos_bajas;
+DROP TRIGGER IF EXISTS trg_eventos_bajas_inmutable_delete           ON modulo2.eventos_bajas;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_eventos_activos_inmutable();
+
+-- TRG-M2-25
+DROP TRIGGER IF EXISTS trg_activo_fecha_inicio_valida ON modulo2.activos_biologicos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_activo_fecha_inicio_valida();
+
+-- TRG-M2-26
+DROP TRIGGER IF EXISTS trg_activo_biologico_no_delete ON modulo2.activos_biologicos;
+DROP FUNCTION IF EXISTS modulo2.trg_fn_activo_biologico_no_delete();
