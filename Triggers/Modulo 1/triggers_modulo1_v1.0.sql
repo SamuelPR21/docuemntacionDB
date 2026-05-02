@@ -7,7 +7,6 @@
 -- Esquema: modulo1
 -- Motor: PostgreSQL
 -- Versión: 1.0
--- Para ampliar explicacion individual de los triggers verificar el documento de informe_triggers_modulo1.
 -- =============================================================================
 -- ÍNDICE
 --   TRG-01  Unicidad de contraseña (no reutilización)
@@ -380,4 +379,6 @@ EXECUTE FUNCTION modulo1.trg_fn_token_un_solo_uso();
 
 -- =============================================================================
 -- Total de funciones de trigger:  11
+-- Total de objetos CREATE:        22  (11 funciones + 13 triggers,
+--                                      TRG-03 y TRG-05 crean 2 triggers c/u)
 -- =============================================================================
