@@ -1069,13 +1069,109 @@ CREATE TRIGGER trg_activo_biologico_no_delete
 BEFORE DELETE ON modulo2.activos_biologicos
 FOR EACH ROW EXECUTE FUNCTION modulo2.trg_fn_activo_biologico_no_delete();
 
+
+-- =============================================================================
+-- TRG-M2-27 — Auditoria Activos Biologicos
+-- Tabla:  modulo2.activos_biologicos
+-- Evento: INSERT o UPDATES
+-- =============================================================================
+
+
+CREATE OR REPLACE FUNCTION modulo2.trg_auditar_activo_biologico()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $func$
+DECLARE
+    v_id_usuario INTEGER;
+    v_campo TEXT;
+    v_old_val JSONB;
+    v_new_val JSONB;
+    v_columnas TEXT[] := ARRAY[
+        'id_especie', 'identificador', 'id_infraestructura', 'tipo',
+        'fecha_inicio_ciclo', 'id_estado', 'descripcion', 'origen_financiero',
+        'costo_adquisicion', 'atributos_dinamicos'
+    ];
+BEGIN
+    -- Obtener el usuario de la sesión (debe ser fijado por el backend)
+    BEGIN
+        v_id_usuario := current_setting('app.usuario_id')::INTEGER;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE EXCEPTION 'No se encontró app.usuario_id en la sesión. '
+                        'El backend debe establecer esta variable.';
+    END;
+
+    -- INSERT: registrar toda la fila nueva
+    IF TG_OP = 'INSERT' THEN
+        INSERT INTO modulo2.auditoria_activos_biologicos (
+            id_activo_biologico,
+            id_usuario,
+            campo_modificado,
+            valor_anterior,
+            valor_nuevo,
+            fecha_cambio,
+            modulo_origen
+        ) VALUES (
+            NEW.id_activo_biologico,
+            v_id_usuario,
+            'INSERT',
+            '{}'::jsonb,
+            to_jsonb(NEW),
+            now(),
+            'modulo2'
+        );
+        RETURN NEW;
+    END IF;
+
+    -- UPDATE: comparar cada columna listada
+    IF TG_OP = 'UPDATE' THEN
+        FOREACH v_campo IN ARRAY v_columnas
+        LOOP
+            EXECUTE format('
+                SELECT $1.%I::JSONB, $2.%I::JSONB
+            ', v_campo, v_campo)
+            USING OLD, NEW
+            INTO v_old_val, v_new_val;
+
+            IF v_old_val IS DISTINCT FROM v_new_val THEN
+                INSERT INTO modulo2.auditoria_activos_biologicos (
+                    id_activo_biologico,
+                    id_usuario,
+                    campo_modificado,
+                    valor_anterior,
+                    valor_nuevo,
+                    fecha_cambio,
+                    modulo_origen
+                ) VALUES (
+                    NEW.id_activo_biologico,
+                    v_id_usuario,
+                    v_campo,
+                    COALESCE(v_old_val, 'null'::jsonb),
+                    COALESCE(v_new_val, 'null'::jsonb),
+                    now(),
+                    'modulo2'
+                );
+            END IF;
+        END LOOP;
+        RETURN NEW;
+    END IF;
+
+    RETURN NULL;
+END;
+$func$;
+
+
+DROP TRIGGER IF EXISTS trg_auditar_activo_biologico ON modulo2.activos_biologicos;
+CREATE TRIGGER trg_auditar_activo_biologico
+AFTER INSERT OR UPDATE ON modulo2.activos_biologicos
+FOR EACH ROW
+EXECUTE FUNCTION modulo2.trg_auditar_activo_biologico();
+
 -- =============================================================================
 -- Total de funciones de trigger: 26
 -- Total de triggers registrados: 40
 --   TRG-M2-23 crea 2 triggers con 1 función (update + delete)
 --   TRG-M2-24 crea 12 triggers con 1 función (update + delete × 6 tablas)
 -- =============================================================================
-
 
 -- =============================================================================
 -- DROP de triggers y funciones — MÓDULO 2
