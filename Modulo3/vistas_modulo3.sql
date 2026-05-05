@@ -694,5 +694,4 @@ SELECT
 FROM modulo3.vw_m03_alerta_contextualizada;
 
 
--- Documentacion de vistas del modulo 3.
--- Cada bloque describe la vista justo antes de su definicion.
+
