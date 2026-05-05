@@ -6,7 +6,7 @@
 --              que deben ser protegidas a nivel de base de datos.
 -- Esquema: modulo2
 -- Motor: PostgreSQL
--- Versión: 1.0
+-- Versión: 1.1
 -- =============================================================================
 
 -- ÍNDICE
