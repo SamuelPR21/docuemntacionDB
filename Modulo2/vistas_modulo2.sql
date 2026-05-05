@@ -4,8 +4,8 @@
 CREATE OR REPLACE VIEW modulo2.vw_rf33_activos_biologicos_listado AS
 SELECT
     ab.id_activo_biologico,
-    ab.indentficador AS identificador,
-    lower(ab.indentficador::text) AS identificador_normalizado,
+    ab.identificador AS identificador,
+    lower(ab.identificador::text) AS identificador_normalizado,
     ab.id_especie,
     e.nombre AS especie,
     ab.id_infraestructura,
@@ -34,7 +34,7 @@ CREATE OR REPLACE VIEW modulo2.vw_rf34_movimientos_activo AS
 SELECT
     m.id_movimiento,
     m.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     m.tipo AS tipo_movimiento,
     m.id_infraestructura_origen,
     i_origen.nombre AS infraestructura_origen,
@@ -68,7 +68,7 @@ JOIN modulo1.usuarios AS u
 CREATE OR REPLACE VIEW modulo2.vw_rf35_activos_individuales AS
 SELECT
     ab.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     dai.raza,
     dai.sexo,
     dai.fecha_nacimeinto AS fecha_nacimiento,
@@ -98,7 +98,7 @@ CREATE OR REPLACE VIEW modulo2.vw_rf35_historial_estados_activo AS
 SELECT
     h.id_historico_estado_activo,
     h.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     h.id_estado_anterior,
     ea_ant.nombre AS estado_anterior,
     h.id_estado_nuevo,
@@ -128,7 +128,7 @@ SELECT
     ) AS paso,
     gf.id_gestion_fases,
     gf.id_activo_biologico,
-    ab.indentficador AS identificador_activo,
+    ab.identificador AS identificador_activo,
     e.id_especie,
     e.nombre AS especie,
     cp.id_ciclo_productivo,
@@ -168,7 +168,7 @@ SELECT
     ) AS paso,
     gf.id_gestion_fases,
     gf.id_activo_biologico,
-    ab.indentficador AS identificador_activo,
+    ab.identificador AS identificador_activo,
     cb.id_ciclo_biologico,
     cb.nombre AS fase,
     gf.id_ciclo_productiva,
@@ -197,7 +197,7 @@ CREATE OR REPLACE VIEW modulo2.vw_rf37_estado_fase_actual AS
 SELECT
     gf.id_gestion_fases,
     gf.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     gf.id_ciclo_productiva,
     cp.nombre AS ciclo_actual,
     gf.fecha_inicio,
@@ -230,7 +230,7 @@ CREATE OR REPLACE VIEW modulo2.vw_rf39_historial_eventos_activo AS
 SELECT
     ea.id_eventos,
     ea.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     ea.fecha,
     ea.descripcion,
     ea.id_usuario,
@@ -267,7 +267,7 @@ SELECT
     ea.id_eventos,
     ea.fecha,
     ea.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     ea.descripcion,
     COALESCE(concat_ws(' ', u.nombre, u.apellidos), 'Sin usuario') AS usuario,
     'modulo2'::text AS modulo_origen,
@@ -292,7 +292,7 @@ SELECT
     ea.id_eventos,
     ea.fecha,
     ea.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     ea.descripcion,
     COALESCE(concat_ws(' ', u.nombre, u.apellidos), 'Sin usuario') AS usuario,
     'modulo2'::text AS modulo_origen,
@@ -317,7 +317,7 @@ SELECT
     ea.id_eventos,
     ea.fecha,
     ea.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     ea.descripcion,
     COALESCE(concat_ws(' ', u.nombre, u.apellidos), 'Sin usuario') AS usuario,
     'modulo2'::text AS modulo_origen,
@@ -342,7 +342,7 @@ SELECT
     ea.id_eventos,
     ea.fecha,
     ea.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     ea.descripcion,
     COALESCE(concat_ws(' ', u.nombre, u.apellidos), 'Sin usuario') AS usuario,
     'modulo2'::text AS modulo_origen,
@@ -372,7 +372,7 @@ SELECT
     ea.id_eventos,
     ea.fecha,
     ea.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     ea.descripcion,
     COALESCE(concat_ws(' ', u.nombre, u.apellidos), 'Sin usuario') AS usuario,
     'modulo2'::text AS modulo_origen,
@@ -394,7 +394,7 @@ CREATE OR REPLACE VIEW modulo2.vw_rf46_historial_completo_activo AS
 SELECT
     h.fecha_cambio AS fecha_evento,
     h.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     'ESTADO'::text AS categoria,
     ea_ant.nombre::text AS detalle_1,
     ea_nvo.nombre::text AS detalle_2,
@@ -416,7 +416,7 @@ SELECT
         (CURRENT_DATE + gf.fecha_inicio::time)::timestamp with time zone
     ) AS fecha_evento,
     gf.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     'FASE_PRODUCTIVA'::text AS categoria,
     cp.nombre::text AS detalle_1,
     CASE WHEN gf.es_activa THEN 'Activa' ELSE 'Finalizada' END AS detalle_2,
@@ -437,7 +437,7 @@ UNION ALL
 SELECT
     ea.fecha AS fecha_evento,
     ea.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     'SANITARIO'::text AS categoria,
     es.diagnostico::text AS detalle_1,
     es.medicamento::text AS detalle_2,
@@ -454,7 +454,7 @@ UNION ALL
 SELECT
     ea.fecha AS fecha_evento,
     ea.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     'CRECIMIENTO'::text AS categoria,
     ec.tipo_medicion::text AS detalle_1,
     (ec.valor_medicion || ' ' || ec.unidad_medida)::text AS detalle_2,
@@ -471,7 +471,7 @@ UNION ALL
 SELECT
     ea.fecha AS fecha_evento,
     ea.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     'PRODUCTIVO'::text AS categoria,
     COALESCE(mp.nombre, ep.id_metrica_produccion::text) AS detalle_1,
     (ep.cantidad || COALESCE(' ' || mp.unidad_medida, ''))::text AS detalle_2,
@@ -490,7 +490,7 @@ UNION ALL
 SELECT
     ea.fecha AS fecha_evento,
     ea.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     'REPRODUCTIVO'::text AS categoria,
     er.categoria::text AS detalle_1,
     er.resultado::text AS detalle_2,
@@ -507,7 +507,7 @@ UNION ALL
 SELECT
     ea.fecha AS fecha_evento,
     ea.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     'BAJA'::text AS categoria,
     eb.tipo::text AS detalle_1,
     eb.cantidad_afectada::text AS detalle_2,
@@ -524,7 +524,7 @@ UNION ALL
 SELECT
     (lower(iz.rango_fecha)::timestamp)::timestamp with time zone AS fecha_evento,
     iz.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     'INDICADOR'::text AS categoria,
     iz.tipo::text AS detalle_1,
     upper(iz.rango_fecha)::text AS detalle_2,
@@ -540,7 +540,7 @@ CREATE OR REPLACE VIEW modulo2.vw_rf47_indicadores_zootecnicos_activo AS
 SELECT
     iz.id_indicador_zootecnico,
     iz.id_activo_biologico,
-    ab.indentficador AS identificador_activo,
+    ab.identificador AS identificador_activo,
     e.id_especie,
     e.nombre AS especie,
     iz.tipo AS tipo_indicador,
@@ -559,7 +559,7 @@ JOIN modulo9.especies AS e
 CREATE OR REPLACE VIEW modulo2.vw_rf47_ficha_integral_activo AS
 SELECT
     ab.id_activo_biologico,
-    ab.indentficador AS codigo,
+    ab.identificador AS codigo,
     ab.tipo,
     e.nombre AS especie,
     ab.fecha_creacion::date AS fecha_registro,
@@ -620,7 +620,7 @@ LEFT JOIN LATERAL (
 CREATE OR REPLACE VIEW modulo2.vw_rf48_infraestructura_actual_activo AS
 SELECT
     ab.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     ab.id_infraestructura,
     i.nombre AS infraestructura_actual
 FROM modulo2.activos_biologicos AS ab
@@ -641,7 +641,7 @@ SELECT
     aas.fecha_fin,
     aas.motivo,
     aas.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     aas.tipo
 FROM modulo2.asociaciones_activos_sensores AS aas
 JOIN modulo9.sensores AS s
@@ -658,7 +658,7 @@ LEFT JOIN modulo2.activos_biologicos AS ab
 CREATE OR REPLACE VIEW modulo2.vw_rf51_auditoria_activos_registrados AS
 SELECT
     ab.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     ab.tipo,
     e.nombre AS especie,
     i.nombre AS infraestructura,
@@ -682,7 +682,7 @@ JOIN modulo2.estados_activos_biologicos AS eab
 CREATE OR REPLACE VIEW modulo2.vw_rf52_auditoria_activos_individuales AS
 SELECT
     ab.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     dai.raza,
     dai.sexo,
     dai.fecha_nacimeinto AS fecha_nacimiento,
@@ -709,7 +709,7 @@ WHERE ab.tipo = 'INDIVIDUAL'::modulo2.enum_activo_biologico_tipo;
 CREATE OR REPLACE VIEW modulo2.vw_rf52_auditoria_activos_poblacionales AS
 SELECT
     ab.id_activo_biologico,
-    ab.indentficador AS identificador_lote,
+    ab.identificador AS identificador_lote,
     e.nombre AS especie,
     i.nombre AS infraestructura,
     eab.nombre AS estado,
@@ -738,7 +738,7 @@ CREATE OR REPLACE VIEW modulo2.vw_rf52_auditoria_fases_ciclo_productivo AS
 SELECT
     gf.id_gestion_fases,
     gf.id_activo_biologico,
-    ab.indentficador AS identificador_activo,
+    ab.identificador AS identificador_activo,
     e.nombre AS especie,
     cp.id_ciclo_productivo,
     cp.nombre AS ciclo_productivo,
@@ -763,7 +763,7 @@ CREATE OR REPLACE VIEW modulo2.vw_rf52_auditoria_cierres_ciclo_productivo AS
 SELECT
     gf.id_gestion_fases,
     gf.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     cp.nombre AS ciclo_productivo,
     gf.fecha_finalizacion,
     h.id_historico_estado_activo,
@@ -801,7 +801,7 @@ CREATE OR REPLACE VIEW modulo2.vw_rf52_auditoria_transferencias_internas AS
 SELECT
     m.id_movimiento,
     m.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     m.id_usuario,
     concat_ws(' ', u.nombre, u.apellidos) AS usuario_responsable,
     m.fecha_transferencia,
@@ -826,7 +826,7 @@ JOIN modulo9.infraestructuras AS ides
 CREATE OR REPLACE VIEW modulo2.vw_rf52_auditoria_acceso_modulos_analiticos AS
 SELECT
     ab.id_activo_biologico,
-    ab.indentficador AS identificador,
+    ab.identificador AS identificador,
     ab.tipo,
     e.nombre AS especie,
     est.nombre AS estado_actual,
@@ -848,7 +848,7 @@ LEFT JOIN modulo2.indicadores_zootecnicos AS iz
     ON iz.id_activo_biologico = ab.id_activo_biologico
 GROUP BY
     ab.id_activo_biologico,
-    ab.indentficador,
+    ab.identificador,
     ab.tipo,
     e.nombre,
     est.nombre,
