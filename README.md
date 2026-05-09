@@ -23,7 +23,7 @@
 
 | Componente | Detalle |
 |---|---|
-| **Motor de base de datos** | PostgreSQL 16 |
+| **Motor de base de datos** | PostgreSQL 18 |
 | **Herramienta de diseño ER** | pgAdmin / pgERD (`.pgerd`) |
 | **Documentación dinámica** | Microsoft Power BI |
 | **VPN / Acceso remoto** | Tailscale |
