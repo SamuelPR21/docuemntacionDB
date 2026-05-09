@@ -54,7 +54,7 @@ BEGIN
         'Modulo 9',
         'CATALOGOS',
         'Registro de nueva especie: ' || TRIM(p_nombre),
-        'EXITOSO',
+        'exitoso',
         'ACTIVO',
         jsonb_build_object(
             'id_especie', v_id_especie,
@@ -160,7 +160,7 @@ BEGIN
         'Modulo 9',
         'CATALOGOS',
         'Actualización de datos de la especie: ' || v_nombre_actual,
-        'EXITOSO',
+        'exitoso',
         'ACTIVO',
         jsonb_build_object(
             'old_data', jsonb_build_object('nombre', v_nombre_actual, 'descripcion', v_desc_actual),

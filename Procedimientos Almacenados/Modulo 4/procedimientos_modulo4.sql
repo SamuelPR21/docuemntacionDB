@@ -46,7 +46,7 @@ BEGIN
         'Modulo 4',
         'SANIDAD',
         'Registro de observación clínica para activo ID: ' || p_id_activo_biologico,
-        'EXITOSO',
+        'exitoso',
         'COMPLETADO',
         jsonb_build_object(
             'id_observacion', v_id_observacion,

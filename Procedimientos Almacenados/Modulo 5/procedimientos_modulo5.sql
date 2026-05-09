@@ -54,7 +54,7 @@ BEGIN
         'Modulo 5',
         'SUMINISTROS',
         'Registro de consumo de alimento para activo ID: ' || p_id_activo,
-        'EXITOSO',
+        'exitoso',
         'VALIDADO',
         jsonb_build_object(
             'id_activo', p_id_activo,
@@ -113,7 +113,7 @@ BEGIN
         'Modulo 5',
         'SUMINISTROS',
         'Registro de aplicación de medicamento: ' || p_nombre_medicamento,
-        'EXITOSO',
+        'exitoso',
         'ACTIVO',
         jsonb_build_object(
             'id_activo', p_id_activo,
@@ -202,7 +202,7 @@ BEGIN
         'Modulo 5',
         'ANALITICA',
         'Cálculo de ICA para activo ID: ' || p_id_activo,
-        'EXITOSO',
+        'exitoso',
         'COMPLETADO',
         jsonb_build_object(
             'ica_resultado', v_ica,

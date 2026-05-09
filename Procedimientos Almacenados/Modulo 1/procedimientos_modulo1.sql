@@ -88,7 +88,7 @@ BEGIN
         'Modulo 1',
         'AUTENTICACION',
         'Registro exitoso de nuevo usuario: ' || p_correo_electronico,
-        'EXITOSO',
+        'exitoso',
         'PENDIENTE',
         jsonb_build_object(
             'id_usuario', v_id_usuario,
@@ -250,7 +250,7 @@ BEGIN
         'Modulo 1',
         'ADMINISTRACION',
         'Actualización de datos del usuario ' || p_id_usuario,
-        'EXITOSO',
+        'exitoso',
         'ACTIVO',
         jsonb_build_object(
             'old_data', (SELECT row_to_json(u) FROM modulo1.usuarios u WHERE id_usuario = p_id_usuario),

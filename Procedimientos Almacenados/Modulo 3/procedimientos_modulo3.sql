@@ -98,7 +98,7 @@ BEGIN
         'Modulo 3',
         'TECNICO',
         'Evento Edge detectado: ' || p_tipo_evento || ' en dispositivo ' || p_id_dispositivo_iot,
-        'EXITOSO',
+        'exitoso',
         'ACTIVO',
         jsonb_build_object(
             'tipo', p_tipo_evento,
