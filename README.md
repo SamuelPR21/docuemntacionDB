@@ -1,4 +1,4 @@
-# 🗄️ Base de Datos SQG — Documentación del Repositorio
+# 🗄️ Base de Datos SGP (Integrador III -2026-1) — Documentación del Repositorio
 
 > **¿Eres nuevo en el equipo o necesitas entender qué hay aquí?**
 > Este documento es tu punto de partida. Todo lo que necesitas saber sobre la base de datos del proyecto está cubierto aquí.
