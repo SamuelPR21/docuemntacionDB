@@ -147,13 +147,13 @@ SELECT
         'condicion_corporal', oc.condicion_corporal,
         'fuente_datos', oc.fuente_datos,
         'observacion', oc.observacion,
-        'validada_por_veterinario', COALESCE(bool_or(ap.accion = 'VALIDACION_VET'), false)
+        'validada_por_veterinario', COALESCE(bool_or(ap.accion::text = 'VALIDACION_VET'), false)
     ) AS condiciones,
     COALESCE(
         string_agg(DISTINCT pat.nombre, ', ' ORDER BY pat.nombre),
         'Sin prediccion asociada'
     ) AS patologia,
-    COUNT(pred.id_prediccion) AS total_predicciones_asociadas,
+    COUNT(DISTINCT pred.id_prediccion) AS total_predicciones_asociadas,
     u.id_usuario,
     concat_ws(' ', u.nombre, u.apellidos) AS usuario_responsable
 FROM modulo4.observaciones_clinicas oc
@@ -165,6 +165,8 @@ LEFT JOIN modulo4.predicciones pred
   ON pred.id_observacion = oc.id_observacion_clinica
 LEFT JOIN modulo9.patologias pat
   ON pat.id_patologias = pred.id_patologia
+LEFT JOIN modulo4.auditorias_predicciones ap
+  ON ap.id_prediccion = pred.id_prediccion
 LEFT JOIN modulo1.usuarios u
   ON u.id_usuario = oc.id_usuario
 GROUP BY
@@ -309,7 +311,7 @@ LEFT JOIN LATERAL (
             DISTINCT concat(d.serial, ' - ', d.descripcion),
             ', '
             ORDER BY concat(d.serial, ' - ', d.descripcion)
-        ) AS dispositivos_modelo,
+        ) FILTER (WHERE d.id_dispositivo_iot IS NOT NULL) AS dispositivos_modelo,
         string_agg(
             DISTINCT i.nombre,
             ', '
@@ -329,8 +331,8 @@ LEFT JOIN LATERAL (
       ON i.id_infraestructura = ab.id_infraestructura
     JOIN modulo9.fincas f
       ON f.id_finca = i.id_finca
-    JOIN modulo9.dispositivos_iot d
-      ON d.id_infraestructura = ab.id_infraestructura
+    LEFT JOIN modulo9.dispositivos_iot d
+      ON d.id_dispositivo_iot = ab.id_dispositivo_iot
     WHERE pred.id_version_modelo = vm.id_version_modelo
 ) dispositivos ON true;
 
