@@ -61,6 +61,7 @@ Cada carpeta de módulo representa un dominio funcional del sistema. Su contenid
 📂 moduloX/
 ├── 📄 moduloX.pgerd          → Diagrama relacional específico del módulo
 ├── 📄 sugerencias_moduloX.*  → Sugerencias de procedimientos, funciones y triggers para el módulo
+├── 📄 informe_moduloX.*      → Informe de la logica y alcance del módulo
 └── 📂 test/                  → (Solo en algunos módulos) Scripts de prueba
 ```
 
