@@ -194,6 +194,4 @@ Las credenciales de acceso a la base de datos **no se comparten en este reposito
 <div align="center">
 
 
-*Ante cualquier duda sobre este repositorio, su contenido o la base de datos, contacta al DBA del proyecto.*
-
 </div>
