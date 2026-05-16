@@ -150,6 +150,7 @@ La documentación de la base de datos está **automatizada y centralizada** en u
 | ⚡ **Triggers** | Documentación de todos los triggers implementados: qué hacen, en qué tabla y cuándo se disparan |
 | 🗂️ **Catálogo de Objetos** | Inventario completo de vistas y procedimientos almacenados de la DB |
 | 🏷️ **Enums** | Listado de tipos enumerados utilizados en la base de datos y sus valores posibles |
+| 📋 **Constarins** | Listado de reglas que se aplican a las columnas o tablas |
 
 > 💡 No necesitas instalar nada. El reporte es de acceso web desde cualquier navegador.
 
