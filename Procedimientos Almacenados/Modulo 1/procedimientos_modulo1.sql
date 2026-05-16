@@ -30,6 +30,11 @@ BEGIN
         RAISE EXCEPTION 'Error de formato: Los nombres y apellidos solo deben contener letras y espacios.';
     END IF;
 
+    -- Validar tipo de identificación (Constraint: chk_usuario_tipo_identificacion)
+    IF p_tipo_identificacion NOT IN ('CC', 'CE', 'Pasaporte') THEN
+        RAISE EXCEPTION 'Error: El tipo de identificación solo puede ser CC, CE o Pasaporte.';
+    END IF;
+
     -- Validar formato básico de correo electrónico
     IF p_correo_electronico !~ '^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$' THEN
         RAISE EXCEPTION 'Error de formato: El campo correo_electronico tiene un formato inválido.';

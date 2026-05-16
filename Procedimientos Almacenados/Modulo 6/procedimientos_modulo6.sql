@@ -25,7 +25,8 @@ CREATE OR REPLACE PROCEDURE modulo6.sp_registrar_cotizacion(
     p_fecha_vencimiento         DATE,
     p_accounting_account        VARCHAR(20)[],
     p_line_type                 VARCHAR(60),
-    p_type_code                 CHAR DEFAULT '4'
+    p_type_code                 CHAR DEFAULT '4',
+    p_motivo_anulacion          TEXT DEFAULT NULL
 )
 LANGUAGE plpgsql
 AS $$
@@ -46,17 +47,22 @@ BEGIN
         RAISE EXCEPTION 'Los valores financieros de la cotización no pueden ser negativos.';
     END IF;
 
+    -- Validar motivo de anulación (Constraint: chk_anulacion_requiere_motivo)
+    IF p_estado = 'ANULADA' AND (p_motivo_anulacion IS NULL OR TRIM(p_motivo_anulacion) = '') THEN
+        RAISE EXCEPTION 'Es obligatorio proporcionar un motivo de anulación si el estado es ANULADA.';
+    END IF;
+
     -- Inserción de la cotización
     INSERT INTO modulo6.cotizaciones (
         fecha_emision, id_periodo_contable, activos_cotizados,
         valor_razonable_referencia, "valor_cotizacion_propuesto ", -- Respeta el espacio en la columna
         condiciones, estado, fecha_vencimiento, accounting_account,
-        line_type, type_code, id_usuario
+        line_type, type_code, id_usuario, motivo_anulacion
     ) VALUES (
         p_fecha_emision, p_id_periodo_contable, p_activos_cotizados,
         p_valor_razonable_referencia, p_valor_cotizacion_propuesto,
         p_condiciones, p_estado, p_fecha_vencimiento, p_accounting_account,
-        p_line_type, p_type_code, p_id_usuario
+        p_line_type, p_type_code, p_id_usuario, p_motivo_anulacion
     ) RETURNING id_cotizacion INTO v_id_cotizacion;
 
     -- Registro de auditoría
