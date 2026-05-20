@@ -160,10 +160,6 @@ EXECUTE FUNCTION modulo5.fn_trg_medicamento_inmutable_validado();
 -- TGR-M05-03 — Cálculo automático de costo_total en consumo de alimentos
 -- Tabla:  modulo5.registros_consumo_alimentos
 -- Evento: BEFORE INSERT
--- =============================================================================
--- TGR-M05-03 — Cálculo automático de costo_total en consumo de alimentos
--- Tabla:  modulo5.registros_consumo_alimentos
--- Evento: BEFORE INSERT
 -- Nota:   Absorbe la validación de estado activo del tipo de alimento
 --         (equivalente al antiguo TGR-M05-15 independiente). Resuelve
 --         costo_unitario desde el campo propio de la fila si viene informado,
@@ -439,17 +435,20 @@ EXECUTE FUNCTION modulo5.fn_trg_medicamento_fecha_no_futura();
 CREATE OR REPLACE FUNCTION modulo5.fn_trg_auditoria_consumo_alimento()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_tipo_op modulo5.enum_auditoria_suministro_tipo_operacion;
-    v_datos_ant json := NULL;
-    v_datos_nue json := NULL;
+    v_tipo_op   modulo5.enum_auditoria_suministro_tipo_operacion;
+    v_datos_ant json    := NULL;
+    v_datos_nue json    := NULL;
+    v_costo     numeric(16,4) := NULL;
 BEGIN
     IF TG_OP = 'INSERT' THEN
         v_tipo_op   := 'REGISTRO';
         v_datos_nue := row_to_json(NEW);
+        v_costo     := NEW.costo_total;
     ELSIF TG_OP = 'UPDATE' THEN
         v_tipo_op   := 'ANULACION';
         v_datos_ant := row_to_json(OLD);
         v_datos_nue := row_to_json(NEW);
+        v_costo     := OLD.costo_total;  -- costo afectado es el del registro original
     END IF;
 
     INSERT INTO modulo5.auditorias_suministros (
@@ -460,6 +459,11 @@ BEGIN
         id_usuario,
         ip_origen,
         fecha_evento,
+        fecha_emision,
+        id_activo_biologico,
+        costo_afectado,
+        clasificacion_registro,
+        retencion_aplicable,
         resultado
     ) VALUES (
         'registros_consumo_alimentos',
@@ -469,6 +473,11 @@ BEGIN
         COALESCE(NEW.id_usuario, OLD.id_usuario),
         NULL,   -- IP gestionada por sesión de backend
         NOW(),
+        NOW(),  -- fecha_emision = timestamp de registro en BD
+        COALESCE(NEW.id_activo_biologico, OLD.id_activo_biologico),
+        v_costo,
+        'NIC41',   -- clasificación per RF-80 catálogo
+        '5 años',
         'EXITOSO'
     );
 
@@ -489,17 +498,20 @@ EXECUTE FUNCTION modulo5.fn_trg_auditoria_consumo_alimento();
 CREATE OR REPLACE FUNCTION modulo5.fn_trg_auditoria_medicamento()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_tipo_op modulo5.enum_auditoria_suministro_tipo_operacion;
-    v_datos_ant json := NULL;
-    v_datos_nue json := NULL;
+    v_tipo_op   modulo5.enum_auditoria_suministro_tipo_operacion;
+    v_datos_ant json    := NULL;
+    v_datos_nue json    := NULL;
+    v_costo     numeric(16,4) := NULL;
 BEGIN
     IF TG_OP = 'INSERT' THEN
         v_tipo_op   := 'REGISTRO';
         v_datos_nue := row_to_json(NEW);
+        v_costo     := NEW.costo_total_medicamento;
     ELSIF TG_OP = 'UPDATE' THEN
         v_tipo_op   := 'ANULACION';
         v_datos_ant := row_to_json(OLD);
         v_datos_nue := row_to_json(NEW);
+        v_costo     := OLD.costo_total_medicamento;  -- costo del registro original
     END IF;
 
     INSERT INTO modulo5.auditorias_suministros (
@@ -510,6 +522,11 @@ BEGIN
         id_usuario,
         ip_origen,
         fecha_evento,
+        fecha_emision,
+        id_activo_biologico,
+        costo_afectado,
+        clasificacion_registro,
+        retencion_aplicable,
         resultado
     ) VALUES (
         'registros_medicamentos',
@@ -519,6 +536,11 @@ BEGIN
         COALESCE(NEW.id_usuario, OLD.id_usuario),
         NULL,   -- IP gestionada por sesión de backend
         NOW(),
+        NOW(),  -- fecha_emision = timestamp de registro en BD
+        COALESCE(NEW.id_activo_biologico, OLD.id_activo_biologico),
+        v_costo,
+        'NIC41',   -- clasificación per RF-80 catálogo
+        '5 años',
         'EXITOSO'
     );
 
@@ -573,12 +595,12 @@ EXECUTE FUNCTION modulo5.fn_trg_auditoria_costos_productivos();
 -- Tabla:  modulo5.costos_productivos
 -- Evento: BEFORE UPDATE
 -- =============================================================================
-CREATE OR REPLACE FUNCTION modulo5.fn_trg_costos_productivos_no_update()
+CREATE OR REPLACE FUNCTION modulo5.fn_proteccion_update_costos_productivos()
 RETURNS TRIGGER AS $$
 BEGIN
     RAISE EXCEPTION
         'OPERACION_NO_PERMITIDA: Los registros de costos productivos son inmutables '
-        '(append-only, NIC 41). No se permite modificar el registro con id [%]. '
+        '(append-only, NIC 41). No se permite modificar el registro [%]. '
         'Para realizar una corrección inserte un nuevo registro con '
         'tipo_operacion = CORRECCION referenciando el id del registro original. '
         '(RF-78 Restricción 6)',
@@ -587,10 +609,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_costos_productivos_no_update
+CREATE TRIGGER trg_proteccion_update_costos_productivos
 BEFORE UPDATE ON modulo5.costos_productivos
 FOR EACH ROW
-EXECUTE FUNCTION modulo5.fn_trg_costos_productivos_no_update();
+EXECUTE FUNCTION modulo5.fn_proteccion_update_costos_productivos();
 
 -- =============================================================================
 -- TGR-M05-15 — Validación de estado activo del tipo de alimento en el catálogo
@@ -675,6 +697,410 @@ FOR EACH ROW
 EXECUTE FUNCTION modulo5.fn_trg_reporte_gastos_fechas_coherentes();
 
 -- =============================================================================
--- Total de funciones de trigger: 16
--- Total de triggers registrados: 16
+-- TGR-M05-17 — Inmutabilidad del acumulado de ciclo productivo en estado CERRADO
+-- Tabla:  modulo5.acumulado_ciclo
+-- Evento: BEFORE UPDATE OR DELETE
+-- =============================================================================
+CREATE OR REPLACE FUNCTION modulo5.fn_trg_acumulado_ciclo_cerrado_inmutable()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        IF OLD.estado = 'CERRADO' THEN
+            RAISE EXCEPTION
+                'OPERACION_NO_PERMITIDA: El acumulado del ciclo productivo [%] está '
+                'CERRADO y es inmutable bajo política NIC 41. No se permite eliminar '
+                'registros de ciclos cerrados. (RF-78 Restricción 2)',
+                OLD.id_ciclo_productivo
+            USING ERRCODE = 'P0001';
+        END IF;
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        -- Bloquear modificaciones sobre un ciclo ya CERRADO
+        IF OLD.estado = 'CERRADO' THEN
+            RAISE EXCEPTION
+                'OPERACION_NO_PERMITIDA: El acumulado del ciclo productivo [%] está '
+                'CERRADO e inmutable. No se permite modificar el acumulado de inversión '
+                'de un ciclo cerrado. (RF-78 Restricción 2 / CA-4)',
+                OLD.id_ciclo_productivo
+            USING ERRCODE = 'P0001';
+        END IF;
+
+        -- Bloquear reversión del estado CERRADO a cualquier otro
+        IF NEW.estado IS DISTINCT FROM 'CERRADO' AND OLD.estado = 'CERRADO' THEN
+            RAISE EXCEPTION
+                'OPERACION_NO_PERMITIDA: No se puede revertir el estado CERRADO del '
+                'acumulado del ciclo productivo [%]. El cierre es definitivo e '
+                'irreversible. (RF-78 Restricción 2)',
+                OLD.id_ciclo_productivo
+            USING ERRCODE = 'P0001';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_acumulado_ciclo_cerrado_inmutable
+BEFORE UPDATE OR DELETE ON modulo5.acumulado_ciclo
+FOR EACH ROW
+EXECUTE FUNCTION modulo5.fn_trg_acumulado_ciclo_cerrado_inmutable();
+
+-- =============================================================================
+-- TGR-M05-18 — Validación de acumulado_total_ciclo no negativo en acumulado_ciclo
+-- Tabla:  modulo5.acumulado_ciclo
+-- Evento: BEFORE UPDATE
+-- =============================================================================
+CREATE OR REPLACE FUNCTION modulo5.fn_trg_acumulado_total_no_negativo()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.acumulado_total_ciclo < 0 THEN
+        RAISE EXCEPTION
+            'ACUMULADO_NEGATIVO_INVALIDO: El acumulado_total_ciclo del ciclo productivo '
+            '[%] no puede ser negativo. Valor resultante: [%]. Verifique el registro '
+            'de corrección antes de continuar. (RF-78 Restricción 12 / RNF-09)',
+            NEW.id_ciclo_productivo,
+            NEW.acumulado_total_ciclo
+        USING ERRCODE = 'P0001';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_acumulado_total_no_negativo
+BEFORE UPDATE ON modulo5.acumulado_ciclo
+FOR EACH ROW
+EXECUTE FUNCTION modulo5.fn_trg_acumulado_total_no_negativo();
+
+-- =============================================================================
+-- TGR-M05-19 — Protección append-only de registro_suministro
+-- Tabla:  modulo5.registro_suministro
+-- Evento: BEFORE UPDATE OR DELETE
+-- =============================================================================
+CREATE OR REPLACE FUNCTION modulo5.fn_trg_registro_suministro_append_only()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION
+            'OPERACION_NO_PERMITIDA: Los registros de suministros son append-only '
+            '(NIC 41 / RF-78 RNF-03). No se permite eliminar el registro con id [%]. '
+            'Para corregir un valor, inserte un nuevo registro con '
+            'tipo_operacion = CORRECCION referenciando este id.',
+            OLD.id_registro_suministro
+        USING ERRCODE = 'P0001';
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        RAISE EXCEPTION
+            'OPERACION_NO_PERMITIDA: Los registros de suministros son append-only '
+            '(NIC 41 / RF-78 RNF-03). No se permite modificar el registro con id [%]. '
+            'Para corregir un valor, inserte un nuevo registro con '
+            'tipo_operacion = CORRECCION referenciando este id.',
+            OLD.id_registro_suministro
+        USING ERRCODE = 'P0001';
+    END IF;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_registro_suministro_append_only
+BEFORE UPDATE OR DELETE ON modulo5.registro_suministro
+FOR EACH ROW
+EXECUTE FUNCTION modulo5.fn_trg_registro_suministro_append_only();
+
+-- =============================================================================
+-- TGR-M05-20 — Validación de costo positivo en registro_suministro
+-- Tabla:  modulo5.registro_suministro
+-- Evento: BEFORE INSERT
+-- =============================================================================
+CREATE OR REPLACE FUNCTION modulo5.fn_trg_registro_suministro_costo_positivo()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.cantidad <= 0 THEN
+        RAISE EXCEPTION
+            'CANTIDAD_INVALIDA: La cantidad del suministro debe ser mayor a cero. '
+            'Valor recibido: [%]. (RF-78 Entradas — cantidad)',
+            NEW.cantidad
+        USING ERRCODE = 'P0001';
+    END IF;
+
+    IF NEW.precio_unitario_resuelto <= 0 THEN
+        RAISE EXCEPTION
+            'PRECIO_INVALIDO: El precio_unitario_resuelto debe ser mayor a cero. '
+            'Valor recibido: [%]. (RF-78 Entradas — precio_unitario_m40)',
+            NEW.precio_unitario_resuelto
+        USING ERRCODE = 'P0001';
+    END IF;
+
+    -- Para registros normales (no correcciones), el costo debe ser positivo.
+    -- Las correcciones pueden tener costo negativo como ajuste compensatorio.
+    IF NEW.tipo_operacion = 'REGISTRO' AND NEW.costo_registro <= 0 THEN
+        RAISE EXCEPTION
+            'COSTO_INVALIDO: El costo_registro debe ser mayor a cero para registros '
+            'de tipo REGISTRO. Valor resultante: [%]. (RF-78 Proceso Fase 6)',
+            NEW.costo_registro
+        USING ERRCODE = 'P0001';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_registro_suministro_costo_positivo
+BEFORE INSERT ON modulo5.registro_suministro
+FOR EACH ROW
+EXECUTE FUNCTION modulo5.fn_trg_registro_suministro_costo_positivo();
+
+-- =============================================================================
+-- TGR-M05-21 — Corrección en registro_suministro requiere id_registro_original y motivo
+-- Tabla:  modulo5.registro_suministro
+-- Evento: BEFORE INSERT
+-- =============================================================================
+CREATE OR REPLACE FUNCTION modulo5.fn_trg_correccion_requiere_original()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.tipo_operacion = 'CORRECCION' THEN
+        IF NEW.id_registro_original IS NULL THEN
+            RAISE EXCEPTION
+                'CORRECCION_SIN_REFERENCIA: Los registros de tipo CORRECCION requieren '
+                'el campo id_registro_original. No se permite una corrección sin '
+                'referencia al registro que se ajusta. '
+                '(RF-78 Restricción 6 / Flujo alterno E7)'
+            USING ERRCODE = 'P0001';
+        END IF;
+
+        IF NEW.motivo_correccion IS NULL OR trim(NEW.motivo_correccion) = '' THEN
+            RAISE EXCEPTION
+                'MOTIVO_CORRECCION_REQUERIDO: Los registros de tipo CORRECCION requieren '
+                'el campo motivo_correccion con contenido. Describa la razón del ajuste '
+                'antes de continuar. (RF-78 Restricción 6)'
+            USING ERRCODE = 'P0001';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_correccion_requiere_original
+BEFORE INSERT ON modulo5.registro_suministro
+FOR EACH ROW
+EXECUTE FUNCTION modulo5.fn_trg_correccion_requiere_original();
+
+-- =============================================================================
+-- TGR-M05-22 — Protección append-only de provision_nic41
+-- Tabla:  modulo5.provision_nic41
+-- Evento: BEFORE UPDATE OR DELETE
+-- =============================================================================
+CREATE OR REPLACE FUNCTION modulo5.fn_trg_provision_nic41_inmutable()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION
+            'OPERACION_NO_PERMITIDA: Los reportes de provisión NIC 41 son inmutables '
+            'y no pueden eliminarse. El reporte con id [%] debe conservarse como '
+            'evidencia de valoración. Las correcciones se realizan mediante un nuevo '
+            'reporte con version_reporte = N+1. (RF-79 Restricción 3 / CA-7)',
+            OLD.id_provision
+        USING ERRCODE = 'P0001';
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        RAISE EXCEPTION
+            'OPERACION_NO_PERMITIDA: Los reportes de provisión NIC 41 son inmutables '
+            'y no pueden modificarse. El reporte con id [%] versión [%] está protegido. '
+            'Para corregirlo, genere un nuevo reporte con version_reporte = [%] y '
+            'referencia id_reporte_anterior. (RF-79 Restricción 3 / CA-7)',
+            OLD.id_provision,
+            OLD.version_reporte,
+            OLD.version_reporte + 1
+        USING ERRCODE = 'P0001';
+    END IF;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_provision_nic41_inmutable
+BEFORE UPDATE OR DELETE ON modulo5.provision_nic41
+FOR EACH ROW
+EXECUTE FUNCTION modulo5.fn_trg_provision_nic41_inmutable();
+
+-- =============================================================================
+-- TGR-M05-23 — Versionado correlativo de provision_nic41
+-- Tabla:  modulo5.provision_nic41
+-- Evento: BEFORE INSERT
+-- =============================================================================
+CREATE OR REPLACE FUNCTION modulo5.fn_trg_provision_version_correlativa()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_version_anterior integer;
+BEGIN
+    -- Solo aplica cuando se referencia un reporte anterior (corrección)
+    IF NEW.id_reporte_anterior IS NOT NULL THEN
+        SELECT version_reporte
+        INTO v_version_anterior
+        FROM modulo5.provision_nic41
+        WHERE id_provision = NEW.id_reporte_anterior;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION
+                'REPORTE_ANTERIOR_NO_ENCONTRADO: El reporte referenciado en '
+                'id_reporte_anterior [%] no existe en provision_nic41. Verifique '
+                'el identificador antes de continuar. (RF-79 Restricción 3)',
+                NEW.id_reporte_anterior
+            USING ERRCODE = 'P0001';
+        END IF;
+
+        IF NEW.version_reporte != (v_version_anterior + 1) THEN
+            RAISE EXCEPTION
+                'VERSION_NO_CORRELATIVA: El version_reporte [%] no es correlativo al '
+                'reporte anterior (versión [%]). Se esperaba version_reporte = [%]. '
+                'La cadena de versiones debe ser consecutiva sin saltos. (RF-79 CA-8)',
+                NEW.version_reporte,
+                v_version_anterior,
+                v_version_anterior + 1
+            USING ERRCODE = 'P0001';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_provision_version_correlativa
+BEFORE INSERT ON modulo5.provision_nic41
+FOR EACH ROW
+EXECUTE FUNCTION modulo5.fn_trg_provision_version_correlativa();
+
+-- =============================================================================
+-- TGR-M05-24 — Validación de data_quality_score y ca_calculado en resultado_ica
+-- Tabla:  modulo5.resultado_ica
+-- Evento: BEFORE INSERT OR UPDATE
+-- =============================================================================
+CREATE OR REPLACE FUNCTION modulo5.fn_trg_resultado_ica_quality_score()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Validar data_quality_score solo cuando está presente
+    IF NEW.data_quality_score IS NOT NULL THEN
+        IF NEW.data_quality_score NOT IN (0, 25, 50, 75, 100) THEN
+            RAISE EXCEPTION
+                'DATA_QUALITY_SCORE_INVALIDO: El data_quality_score [%] no es un valor '
+                'permitido. Los valores válidos son: 0, 25, 50, 75, 100 según la fórmula '
+                'score = (datos_críticos_presentes / 4) × 100. '
+                '(RF-74 Restricciones — data_quality_score)',
+                NEW.data_quality_score
+            USING ERRCODE = 'P0001';
+        END IF;
+    END IF;
+
+    -- Validar que ca_calculado no sea negativo cuando está presente
+    IF NEW.ca_calculado IS NOT NULL AND NEW.ca_calculado < 0 THEN
+        RAISE EXCEPTION
+            'CA_CALCULADO_INVALIDO: El ca_calculado no puede ser negativo. '
+            'Valor recibido: [%]. El CA es la razón alimento/ganancia de peso '
+            'y siempre debe ser positivo. (RF-74 Restricciones)',
+            NEW.ca_calculado
+        USING ERRCODE = 'P0001';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_resultado_ica_quality_score
+BEFORE INSERT OR UPDATE ON modulo5.resultado_ica
+FOR EACH ROW
+EXECUTE FUNCTION modulo5.fn_trg_resultado_ica_quality_score();
+
+-- =============================================================================
+-- TGR-M05-25 — Protección append-only de resultado_ica
+-- Tabla:  modulo5.resultado_ica
+-- Evento: BEFORE DELETE
+-- =============================================================================
+CREATE OR REPLACE FUNCTION modulo5.fn_trg_resultado_ica_no_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION
+        'OPERACION_NO_PERMITIDA: Los registros de resultado ICA son append-only y no '
+        'pueden eliminarse. El registro con id [%] del activo [%] período [%] debe '
+        'conservarse en el historial de CA para trazabilidad y valoración NIC 41 (M06). '
+        '(RF-74 CA-5 / Postcondición 2)',
+        OLD.id_resultado_ica,
+        OLD.id_activo_biologico,
+        OLD.periodo_evaluacion
+    USING ERRCODE = 'P0001';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_resultado_ica_no_delete
+BEFORE DELETE ON modulo5.resultado_ica
+FOR EACH ROW
+EXECUTE FUNCTION modulo5.fn_trg_resultado_ica_no_delete();
+
+-- =============================================================================
+-- TGR-M05-26 — Auditoría automática de inserción en registro_suministro
+-- Tabla:  modulo5.registro_suministro
+-- Evento: AFTER INSERT
+-- =============================================================================
+CREATE OR REPLACE FUNCTION modulo5.fn_trg_auditoria_registro_suministro()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_tipo_op modulo5.enum_auditoria_suministro_tipo_operacion;
+BEGIN
+    -- Determinar tipo de operación según naturaleza del registro
+    IF NEW.tipo_operacion = 'CORRECCION' THEN
+        v_tipo_op := 'CORRECCION';
+    ELSE
+        v_tipo_op := 'REGISTRO';
+    END IF;
+
+    INSERT INTO modulo5.auditorias_suministros (
+        entidad_afectada,
+        tipo_operacion,
+        datos_anteriores,
+        datos_nuevos,
+        id_usuario,
+        ip_origen,
+        fecha_evento,
+        fecha_emision,
+        id_activo_biologico,
+        id_ciclo_productivo,
+        costo_afectado,
+        origen_precio,
+        clasificacion_registro,
+        retencion_aplicable,
+        resultado
+    ) VALUES (
+        'registro_suministro',
+        v_tipo_op,
+        NULL,
+        row_to_json(NEW),
+        NULL,   -- id_usuario: no está en registro_suministro; backend lo enriquece vía RF-80
+        NULL,   -- IP gestionada por sesión de backend
+        NOW(),
+        NOW(),  -- fecha_emision = timestamp de registro en BD
+        NEW.id_activo_biologico,
+        NEW.id_ciclo_productivo,
+        NEW.costo_registro,
+        NEW.origen_precio,
+        'NIC41',   -- clasificación fija per RF-80 catálogo
+        '5 años',
+        'EXITOSO'
+    );
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_auditoria_registro_suministro
+AFTER INSERT ON modulo5.registro_suministro
+FOR EACH ROW
+EXECUTE FUNCTION modulo5.fn_trg_auditoria_registro_suministro();
+
+-- =============================================================================
+-- Total de funciones de trigger: 26
+-- Total de triggers registrados: 26
 -- =============================================================================
