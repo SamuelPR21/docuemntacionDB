@@ -14,7 +14,7 @@
    - [Raíz del proyecto](#-raíz-del-proyecto)
    - [Diccionario de datos](#-diccionario-de-datos)
 3. [Documentación interactiva — Power BI](#-documentación-interactiva--power-bi)
-4. [Conexión a la base de datos — Tailscale](#-conexión-a-la-base-de-datos--tailscale)
+4. [Conexión a la base de datos](#-conexión-a-la-base-de-datos)
 5. [Esquema de Auditoría](#-esquema-de-auditoría)
 6. [Contacto y accesos](#-contacto-y-accesos)
 
@@ -158,24 +158,54 @@ La documentación de la base de datos está **automatizada y centralizada** en u
 
 ---
 
-## 🔒 Conexión a la Base de Datos — Tailscale
+## 🔒 Conexión a la Base de Datos
 
-La base de datos **no está expuesta a internet directamente**. El acceso se realiza mediante **Tailscale**, una VPN segura y fácil de usar que permite conectarse como si estuvieras en la misma red local del servidor.
+Existen **dos vías independientes** para conectarse a la base de datos según el contexto o preferencia del usuario. Ambas requieren credenciales que deben solicitarse al DBA (ver sección de Contacto).
 
-> ☁️ **Hosting:** La base de datos se encuentra alojada en **Supabase**, plataforma que actúa como proveedor de infraestructura PostgreSQL en la nube para este proyecto.
+---
 
-### ¿Cómo conectarse?
+### 🛡️ Vía 1 — Tailscale (VPN)
+
+La base de datos **no está expuesta a internet directamente**. A través de **Tailscale** es posible conectarse mediante VPN de forma segura, como si estuvieras en la misma red local del servidor.
+
+**¿Cómo conectarse?**
 
 ```
 1. Instala Tailscale en tu equipo → https://tailscale.com/download
-2. Solicita la invitación a la red (ver sección Contacto)
-3. Acepta la invitación y conecta Tailscale
-4. Usa el cliente de tu preferencia (pgAdmin, DBeaver, etc.) con las credenciales recibidas
+2. Solicita al DBA la invitación a la red Tailscale del proyecto (ver sección Contacto)
+3. Acepta la invitación desde tu cuenta de Tailscale y activa la conexión
+4. Una vez conectado, abre tu cliente preferido (pgAdmin, DBeaver, etc.)
+5. Usa el host, puerto y credenciales recibidas del DBA para establecer la conexión
 ```
 
 > ✅ **Compatible con:** Windows, macOS, Linux, iOS y Android.
 
-### Credenciales de acceso
+---
+
+### ☁️ Vía 2 — Supabase (Acceso directo en la nube)
+
+La base de datos se encuentra alojada en **Supabase**, plataforma que provee la infraestructura PostgreSQL en la nube para este proyecto. Supabase expone una cadena de conexión directa que permite conectarse **sin necesidad de VPN**, desde cualquier cliente compatible con PostgreSQL.
+
+**¿Cómo conectarse?**
+
+```
+1. Solicita al DBA la cadena de conexión de Supabase y las credenciales correspondientes a tu rol (ver sección Contacto)
+2. Abre tu cliente preferido (pgAdmin, DBeaver, psql, etc.)
+3. Configura la conexión con los siguientes parámetros recibidos:
+      Host     → proporcionado por el DBA
+      Puerto   → proporcionado por el DBA (generalmente 5432 o 6543)
+      Base de datos → proporcionada por el DBA
+      Usuario  → proporcionado por el DBA
+      Contraseña → proporcionada por el DBA
+4. Habilita SSL en la configuración de la conexión (requerido por Supabase)
+5. Conecta y verifica el acceso
+```
+
+> ✅ **No requiere instalación de VPN.** Útil para acceso rápido desde cualquier red.
+
+---
+
+### 🔑 Credenciales de acceso
 
 Las credenciales de acceso a la base de datos **no se comparten en este repositorio** por seguridad. Solicítalas según tu rol (ver sección de Contacto).
 
