@@ -15,7 +15,8 @@
    - [Diccionario de datos](#-diccionario-de-datos)
 3. [Documentación interactiva — Power BI](#-documentación-interactiva--power-bi)
 4. [Conexión a la base de datos — Tailscale](#-conexión-a-la-base-de-datos--tailscale)
-5. [Contacto y accesos](#-contacto-y-accesos)
+5. [Esquema de Auditoría](#-esquema-de-auditoría)
+6. [Contacto y accesos](#-contacto-y-accesos)
 
 ---
 
@@ -28,6 +29,7 @@
 | **Documentación dinámica** | Microsoft Power BI |
 | **VPN / Acceso remoto** | Tailscale |
 | **Control de versiones** | Git |
+| **Herramientas en la nube** | Supabase |
 
 ---
 
@@ -150,7 +152,7 @@ La documentación de la base de datos está **automatizada y centralizada** en u
 | ⚡ **Triggers** | Documentación de todos los triggers implementados: qué hacen, en qué tabla y cuándo se disparan |
 | 🗂️ **Catálogo de Objetos** | Inventario completo de vistas y procedimientos almacenados de la DB |
 | 🏷️ **Enums** | Listado de tipos enumerados utilizados en la base de datos y sus valores posibles |
-| 📋 **Constarins** | Listado de reglas que se aplican a las columnas o tablas |
+| 📋 **Catálogo Constarins** | Listado de reglas que se aplican a las columnas o tablas |
 
 > 💡 No necesitas instalar nada. El reporte es de acceso web desde cualquier navegador.
 
@@ -159,6 +161,8 @@ La documentación de la base de datos está **automatizada y centralizada** en u
 ## 🔒 Conexión a la Base de Datos — Tailscale
 
 La base de datos **no está expuesta a internet directamente**. El acceso se realiza mediante **Tailscale**, una VPN segura y fácil de usar que permite conectarse como si estuvieras en la misma red local del servidor.
+
+> ☁️ **Hosting:** La base de datos se encuentra alojada en **Supabase**, plataforma que actúa como proveedor de infraestructura PostgreSQL en la nube para este proyecto.
 
 ### ¿Cómo conectarse?
 
@@ -174,6 +178,23 @@ La base de datos **no está expuesta a internet directamente**. El acceso se rea
 ### Credenciales de acceso
 
 Las credenciales de acceso a la base de datos **no se comparten en este repositorio** por seguridad. Solicítalas según tu rol (ver sección de Contacto).
+
+---
+
+## 🔍 Esquema de Auditoría
+
+La base de datos cuenta con un **esquema de auditoría** implementado para garantizar la trazabilidad completa de todas las operaciones realizadas sobre los datos.
+
+### ¿Qué registra?
+
+| Aspecto | Descripción |
+|---|---|
+| 📝 **Tipo de operación** | Registra si la sentencia ejecutada fue de tipo DDL (ej: `CREATE`, `ALTER`, `DROP`) o DML (ej: `INSERT`, `UPDATE`, `DELETE`) |
+| 🧾 **Sentencia ejecutada** | Captura la sentencia SQL exacta que fue ejecutada |
+| 👤 **Quién la ejecutó** | Identifica el usuario de base de datos que realizó la operación |
+| 🕐 **Información adicional** | Almacena metadatos complementarios como fecha y hora, esquema y tabla afectada, entre otros |
+
+> 🛡️ Este esquema permite mantener un historial completo de cambios, facilitar auditorías de seguridad y rastrear el origen de cualquier modificación en la base de datos.
 
 ---
 
